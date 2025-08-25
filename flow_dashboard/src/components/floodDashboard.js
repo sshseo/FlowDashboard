@@ -236,7 +236,7 @@ function KakaoMap({ selectedLocation }) {
 }
 // API 호출 함수들 (Python 백엔드 연동용)
 const apiService = {
-  // 실시간 수위 데이터 가져오기ㄴ
+  // 실시간 수위 데이터 가져오기
   getRealtimeData: async (locationId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/realtime/${locationId}`)
