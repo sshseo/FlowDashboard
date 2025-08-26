@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Waves, Eye, EyeOff, Lock, User, Shield,
-  AlertCircle, Wifi, Monitor
+  AlertCircle, Wifi, WifiOff, Monitor, MonitorOff,
+  RefreshCw
 } from 'lucide-react'
 
 // API 기본 URL
@@ -17,6 +18,78 @@ export default function LoginPage({ onLogin }) {
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
 
+  // 서버 상태 관리
+  const [serverStatus, setServerStatus] = useState({
+    isOnline: false,
+    isChecking: true,
+    lastCheck: null,
+    version: null,
+    monitoringStatus: {
+      isActive: false,
+      connectedSites: 0
+    }
+  })
+
+  // 서버 상태 확인 함수
+  const checkServerStatus = async () => {
+    setServerStatus(prev => ({ ...prev, isChecking: true }))
+
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5초 타임아웃
+
+      const response = await fetch(`${API_BASE_URL}/`, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      clearTimeout(timeoutId)
+
+      if (response.ok) {
+        const data = await response.json()
+        setServerStatus(prev => ({
+          ...prev,
+          isOnline: true,
+          isChecking: false,
+          lastCheck: new Date(),
+          version: data.version,
+          monitoringStatus: {
+            isActive: true,
+            connectedSites: 3 // 실제로는 API에서 가져와야 함
+          }
+        }))
+      } else {
+        throw new Error('Server responded with error')
+      }
+    } catch (err) {
+      console.log('서버 상태 확인 실패:', err.message)
+      setServerStatus(prev => ({
+        ...prev,
+        isOnline: false,
+        isChecking: false,
+        lastCheck: new Date(),
+        version: null,
+        monitoringStatus: {
+          isActive: false,
+          connectedSites: 0
+        }
+      }))
+    }
+  }
+
+  // 컴포넌트 마운트 시 서버 상태 확인
+  useEffect(() => {
+    checkServerStatus()
+
+    // 30초마다 서버 상태 확인
+    const interval = setInterval(checkServerStatus, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -31,6 +104,12 @@ export default function LoginPage({ onLogin }) {
     // 기본 검증
     if (!formData.username || !formData.password) {
       setError('사용자명과 비밀번호를 모두 입력해주세요.')
+      return
+    }
+
+    // 서버가 오프라인인 경우 경고
+    if (!serverStatus.isOnline) {
+      setError('서버에 연결할 수 없습니다. 서버 상태를 확인해주세요.')
       return
     }
 
@@ -82,6 +161,8 @@ export default function LoginPage({ onLogin }) {
 
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setError('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.')
+        // 서버 상태 다시 확인
+        checkServerStatus()
       } else {
         setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
       }
@@ -197,7 +278,7 @@ export default function LoginPage({ onLogin }) {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isLoading || !formData.username || !formData.password}
+                disabled={isLoading || !formData.username || !formData.password || !serverStatus.isOnline}
                 className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
               >
                 {isLoading ? (
@@ -213,33 +294,92 @@ export default function LoginPage({ onLogin }) {
           </div>
         </div>
 
-        {/* 시스템 상태 정보 */}
+        {/* 실시간 시스템 상태 정보 */}
         <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-gray-200">
-            <div className="flex items-center gap-2 text-sm">
-              <Wifi className="h-4 w-4 text-green-500" />
-              <span className="text-gray-700">시스템 온라인</span>
+          {/* 서버 연결 상태 */}
+          <div className={`bg-white/80 backdrop-blur-sm rounded-lg p-3 border ${
+            serverStatus.isOnline ? 'border-green-200' : 'border-red-200'
+          }`}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-sm">
+                {serverStatus.isChecking ? (
+                  <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />
+                ) : serverStatus.isOnline ? (
+                  <Wifi className="h-4 w-4 text-green-500" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-red-500" />
+                )}
+                <span className={`${
+                  serverStatus.isOnline ? 'text-green-700' : 'text-red-700'
+                }`}>
+                  {serverStatus.isChecking ? '확인 중...' :
+                   serverStatus.isOnline ? '시스템 온라인' : '시스템 오프라인'}
+                </span>
+              </div>
+              <button
+                onClick={checkServerStatus}
+                disabled={serverStatus.isChecking}
+                className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                title="상태 새로고침"
+              >
+                <RefreshCw className={`h-3 w-3 ${serverStatus.isChecking ? 'animate-spin' : ''}`} />
+              </button>
             </div>
-            <div className="text-xs text-gray-500 mt-1">서버 정상 작동 중</div>
+            <div className="text-xs text-gray-500">
+              {serverStatus.isOnline ? (
+                <>
+                  서버 정상 작동 중
+                  {serverStatus.version && (
+                    <div>v{serverStatus.version}</div>
+                  )}
+                </>
+              ) : (
+                '서버 연결 실패'
+              )}
+            </div>
+            {serverStatus.lastCheck && (
+              <div className="text-xs text-gray-400 mt-1">
+                마지막 확인: {serverStatus.lastCheck.toLocaleTimeString('ko-KR')}
+              </div>
+            )}
           </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-gray-200">
+
+          {/* 모니터링 시스템 상태 */}
+          <div className={`bg-white/80 backdrop-blur-sm rounded-lg p-3 border ${
+            serverStatus.monitoringStatus.isActive ? 'border-blue-200' : 'border-gray-200'
+          }`}>
             <div className="flex items-center gap-2 text-sm">
-              <Monitor className="h-4 w-4 text-blue-500" />
-              <span className="text-gray-700">모니터링 활성</span>
+              {serverStatus.monitoringStatus.isActive ? (
+                <Monitor className="h-4 w-4 text-blue-500" />
+              ) : (
+                <MonitorOff className="h-4 w-4 text-gray-400" />
+              )}
+              <span className={`${
+                serverStatus.monitoringStatus.isActive ? 'text-blue-700' : 'text-gray-700'
+              }`}>
+                {serverStatus.monitoringStatus.isActive ? '모니터링 활성' : '모니터링 비활성'}
+              </span>
             </div>
-            <div className="text-xs text-gray-500 mt-1">3개 지점 연결됨</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {serverStatus.monitoringStatus.isActive ?
+                `${serverStatus.monitoringStatus.connectedSites}개 지점 연결됨` :
+                '연결된 지점 없음'
+              }
+            </div>
           </div>
         </div>
 
-        {/* 데모 안내 */}
-        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+        {/* 계정 문의 안내 */}
+        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
           <div className="flex items-start gap-2">
-            <Shield className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <Shield className="h-4 w-4 text-gray-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <div className="font-medium text-blue-800">데모 계정</div>
-              <div className="text-blue-600 text-xs mt-1">
-                사용자명: <span className="font-mono bg-white px-1 rounded">admin</span><br/>
-                비밀번호: <span className="font-mono bg-white px-1 rounded">1234</span>
+              <div className="font-medium text-gray-800">계정 관련 문의</div>
+              <div className="text-gray-600 text-xs mt-1">
+                아이디 · 비밀번호 분실 시 관리자에게 문의하세요
+              </div>
+              <div className="text-gray-500 text-xs mt-1">
+                📞 문의전화: <span className="font-mono">010-1234-5678</span>
               </div>
             </div>
           </div>

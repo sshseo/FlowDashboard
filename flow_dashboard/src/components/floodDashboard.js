@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
   Camera, MapPin, AlertTriangle, Waves, Gauge, Clock,
   Wifi, WifiOff, RefreshCw, Menu, X, Bell, Settings,
-  TrendingUp, Droplets, Wind, Thermometer
+  TrendingUp, Droplets, Wind, Thermometer, LogOut, User
 } from 'lucide-react'
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area } from 'recharts'
 
 // API 기본 설정 (Python 백엔드 연동용)
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001'
 
 // 샘플 데이터 (개발용 - 실제로는 API에서 가져올 데이터)
 // 수위
@@ -234,6 +234,7 @@ function KakaoMap({ selectedLocation }) {
     </div>
   )
 }
+
 // API 호출 함수들 (Python 백엔드 연동용)
 const apiService = {
   // 실시간 수위 데이터 가져오기
@@ -273,13 +274,14 @@ const apiService = {
   }
 }
 
-export default function AICCTVFloodDashboard() {
+export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   // 상태 관리
   const [selectedLocation, setSelectedLocation] = useState('center')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [isLoading, setIsLoading] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   // 데이터 상태
   const [waterLevel, setWaterLevel] = useState(initialWaterLevel)
@@ -343,6 +345,13 @@ export default function AICCTVFloodDashboard() {
   useEffect(() => {
     setVideoKey(prev => prev + 1)
   }, [selectedLocation])
+
+  // 로그아웃 처리
+  const handleLogout = () => {
+    if (window.confirm('로그아웃 하시겠습니까?')) {
+      onLogout()
+    }
+  }
 
   // KPI 계산
   const kpis = useMemo(() => {
@@ -496,8 +505,48 @@ export default function AICCTVFloodDashboard() {
               <div className={`px-2 py-1 rounded-full text-xs font-medium ${riskLevel.color} bg-current bg-opacity-10`}>
                 {riskLevel.label}
               </div>
+
+              {/* 사용자 정보 드롭다운 */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <User className="h-4 w-4" />
+                  <span className="text-sm font-medium hidden sm:block">
+                    {userInfo?.user_name || '사용자'}
+                  </span>
+                </button>
+
+                {/* 드롭다운 메뉴 */}
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
+                    <div className="p-3 border-b">
+                      <div className="text-sm font-medium">{userInfo?.user_name || '사용자'}</div>
+                      <div className="text-xs text-gray-500">{userInfo?.user_id} 로그인 중</div>
+                    </div>
+                    <div className="p-1">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-red-50 text-red-600 rounded transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span className="text-sm">로그아웃</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* 드롭다운 닫기를 위한 오버레이 */}
+          {showUserMenu && (
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setShowUserMenu(false)}
+            />
+          )}
         </header>
 
         {/* 대시보드 콘텐츠 */}
