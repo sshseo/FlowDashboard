@@ -36,9 +36,10 @@ export default function LoginPage({ onLogin }) {
 
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5초 타임아웃
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-      const response = await fetch(`${API_BASE_URL}/`, {
+      // 새로운 health 엔드포인트 사용 (인증 불필요)
+      const response = await fetch(`${API_BASE_URL}/api/health`, {
         method: 'GET',
         signal: controller.signal,
         headers: {
@@ -52,13 +53,13 @@ export default function LoginPage({ onLogin }) {
         const data = await response.json()
         setServerStatus(prev => ({
           ...prev,
-          isOnline: true,
+          isOnline: data.status === 'healthy',
           isChecking: false,
           lastCheck: new Date(),
           version: data.version,
           monitoringStatus: {
-            isActive: true,
-            connectedSites: 3 // 실제로는 API에서 가져와야 함
+            isActive: data.monitoring_active || false,
+            connectedSites: data.connected_sites || 0
           }
         }))
       } else {

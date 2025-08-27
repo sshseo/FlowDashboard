@@ -1,3 +1,4 @@
+# main.py
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -5,7 +6,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.database import init_db_pool, close_db_pool, get_db_pool
-from app.routers import auth
+from app.routers import auth, flow
 
 
 @asynccontextmanager
@@ -33,6 +34,8 @@ app.add_middleware(
 
 # 라우터 등록
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(flow.router, prefix="/api", tags=["Flow Data"])
+
 @app.get("/")
 async def root():
     """서버 상태 확인"""

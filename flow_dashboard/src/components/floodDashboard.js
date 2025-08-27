@@ -9,40 +9,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 // API 기본 설정 (Python 백엔드 연동용)
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001'
 
-// 샘플 데이터 (개발용 - 실제로는 API에서 가져올 데이터)
-// 수위
-const initialWaterLevel = [
-  { t: '09:00', h: 7.2, timestamp: '2025-08-21T09:00:00+09:00' },
-  { t: '09:05', h: 7.8, timestamp: '2025-08-21T09:05:00+09:00' },
-  { t: '09:10', h: 8.3, timestamp: '2025-08-21T09:10:00+09:00' },
-  { t: '09:15', h: 9.0, timestamp: '2025-08-21T09:15:00+09:00' },
-  { t: '09:20', h: 9.5, timestamp: '2025-08-21T09:20:00+09:00' }
-]
-
-//유속
-const initialFlowFlux = [
-  { t: '09:00', v: 0.6 },
-  { t: '09:05', v: 0.7 },
-  { t: '09:10', v: 0.9 },
-  { t: '09:15', v: 1.1 },
-  { t: '09:20', v: 1.3 }
-]
-
-//유량
-const initialFlowRate = [
-  { t: '09:00', q: 12 },
-  { t: '09:05', q: 14 },
-  { t: '09:10', q: 16 },
-  { t: '09:15', q: 18 },
-  { t: '09:20', q: 21 }
-]
-
-const initialAlerts = [
-  { id: 'AL-001', ts: '09:20', level: 'CRITICAL', message: '수위 급상승 감지 (15cm 임계치 접근)', location: '중앙' },
-  { id: 'AL-002', ts: '09:18', level: 'WARNING', message: '유속 증가 (1.3 m/s)', location: '중앙' },
-  { id: 'AL-003', ts: '09:15', level: 'INFO', message: 'AI 분석 완료 - 차량 2대 감지', location: '입구' }
-]
-
+// 위치 정보
 const locations = [
   {
     id: 'entrance',
@@ -74,7 +41,7 @@ const locations = [
 ]
 
 // 카카오맵 컴포넌트
-function KakaoMap({ selectedLocation }) {
+function KakaoMap({ selectedLocation, flowInfo }) {
   const mapRef = React.useRef(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadError, setLoadError] = useState(null)
@@ -126,24 +93,22 @@ function KakaoMap({ selectedLocation }) {
     }
 
     script.onerror = (error) => {
-      console.error('카카오맵 스크립트 로드 실패:', error)
       setLoadError('카카오맵 스크립트 로드에 실패했습니다')
     }
 
     document.head.appendChild(script)
-
-    return () => {
-      // 클린업은 하지 않음 (전역 리소스)
-    }
   }, [])
 
   useEffect(() => {
     if (!isLoaded || !currentLocation || !mapRef.current) return
 
     try {
+      const lat = flowInfo?.flow_latitude || currentLocation.lat
+      const lng = flowInfo?.flow_longitude || currentLocation.lng
+
       const container = mapRef.current
       const options = {
-        center: new window.kakao.maps.LatLng(currentLocation.lat, currentLocation.lng),
+        center: new window.kakao.maps.LatLng(lat, lng),
         level: 3,
         draggable: true,
         scrollwheel: true,
@@ -151,9 +116,8 @@ function KakaoMap({ selectedLocation }) {
       }
 
       const map = new window.kakao.maps.Map(container, options)
-
       // 마커 생성
-      const markerPosition = new window.kakao.maps.LatLng(currentLocation.lat, currentLocation.lng)
+      const markerPosition = new window.kakao.maps.LatLng(lat, lng)
       const marker = new window.kakao.maps.Marker({
         position: markerPosition,
         title: `${currentLocation.name} 모니터링 지점`
@@ -162,10 +126,11 @@ function KakaoMap({ selectedLocation }) {
       marker.setMap(map)
 
       // 인포윈도우 생성
+      const flowName = flowInfo?.flow_name || '영오지하차도'
       const infowindow = new window.kakao.maps.InfoWindow({
         content: `
           <div style="padding:8px; font-size:12px; width:200px; text-align:center;">
-            <strong style="color:#2563eb;">영오지하차도</strong><br/>
+            <strong style="color:#2563eb;">${flowName}</strong><br/>
             <span style="color:#666; font-size:11px;">${currentLocation.name} 모니터링 지점</span><br/>
             <span style="color:#10b981; font-size:10px;">🟢 수위센서 + AI CCTV 정상 작동</span>
           </div>
@@ -186,21 +151,17 @@ function KakaoMap({ selectedLocation }) {
       })
 
     } catch (error) {
-      console.error('카카오맵 초기화 에러:', error)
       setLoadError('지도 초기화에 실패했습니다')
     }
-  }, [isLoaded, currentLocation])
+  }, [isLoaded, currentLocation, flowInfo])
 
   // 로딩 상태
   if (!isLoaded && !loadError) {
     return (
-      <div className="relative h-32 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-sm text-gray-600">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-            <div className="font-medium">지도 로딩 중...</div>
-            <div className="text-xs mt-1 text-gray-500">카카오맵을 불러오고 있습니다</div>
-          </div>
+      <div className="h-48 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border flex items-center justify-center">
+        <div className="text-center text-sm text-gray-600">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <div className="font-medium">지도 로딩 중...</div>
         </div>
       </div>
     )
@@ -209,39 +170,40 @@ function KakaoMap({ selectedLocation }) {
   // 에러 상태
   if (loadError) {
     return (
-      <div className="relative h-32 bg-gradient-to-br from-red-50 to-red-100 rounded-lg border border-red-200">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-sm text-red-600">
-            <MapPin className="h-8 w-8 mx-auto mb-2 text-red-400" />
-            <div className="font-medium">지도 로드 실패</div>
-            <div className="text-xs mt-1">{loadError}</div>
-            <div className="text-xs mt-1 text-red-500">
-              유효한 카카오맵 API 키가 필요합니다
-            </div>
-          </div>
+      <div className="h-48 bg-gradient-to-br from-red-50 to-red-100 rounded-lg border border-red-200 flex items-center justify-center">
+        <div className="text-center text-sm text-red-600">
+          <MapPin className="h-8 w-8 mx-auto mb-2 text-red-400" />
+          <div className="font-medium">지도 로드 실패</div>
+          <div className="text-xs mt-1">{loadError}</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="relative">
-      <div
-        ref={mapRef}
-        className="h-32 rounded-lg border shadow-sm"
-        style={{ minHeight: '240px' }}
-      />
+    <div className="h-48 rounded-lg border shadow-sm">
+      <div ref={mapRef} className="w-full h-full rounded-lg" />
     </div>
   )
 }
 
-// API 호출 함수들 (Python 백엔드 연동용)
+// API 호출 함수들
 const apiService = {
   // 실시간 수위 데이터 가져오기
+  getAuthHeaders: () => {
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  },
+
   getRealtimeData: async (locationId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/realtime/${locationId}`)
-      if (!response.ok) throw new Error('API 호출 실패')
+      const response = await fetch(`${API_BASE_URL}/api/realtime/${locationId}`, {
+        headers: apiService.getAuthHeaders()
+      })
+      if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
       return await response.json()
     } catch (error) {
       console.error('실시간 데이터 로딩 실패:', error)
@@ -252,8 +214,10 @@ const apiService = {
   // 시계열 데이터 가져오기
   getTimeseriesData: async (locationId, timeRange = '1h') => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/timeseries/${locationId}?range=${timeRange}`)
-      if (!response.ok) throw new Error('API 호출 실패')
+      const response = await fetch(`${API_BASE_URL}/api/timeseries/${locationId}?range=${timeRange}`, {
+        headers: apiService.getAuthHeaders()
+      })
+      if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
       return await response.json()
     } catch (error) {
       console.error('시계열 데이터 로딩 실패:', error)
@@ -264,11 +228,26 @@ const apiService = {
   // 알림 목록 가져오기
   getAlerts: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/alerts`)
-      if (!response.ok) throw new Error('API 호출 실패')
+      const response = await fetch(`${API_BASE_URL}/api/alerts`, {
+        headers: apiService.getAuthHeaders()
+      })
+      if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
       return await response.json()
     } catch (error) {
       console.error('알림 데이터 로딩 실패:', error)
+      return null
+    }
+  },
+
+  getFlowInfo: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/info`, {
+        headers: apiService.getAuthHeaders()
+      })
+      if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
+      return await response.json()
+    } catch (error) {
+      console.error('하천 정보 로딩 실패:', error)
       return null
     }
   }
@@ -284,47 +263,83 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   // 데이터 상태
-  const [waterLevel, setWaterLevel] = useState(initialWaterLevel)
-  const [flowVelocity, setFlowVelocity] = useState(initialFlowFlux)
-  const [discharge, setDischarge] = useState(initialFlowRate)
-  const [alerts, setAlerts] = useState(initialAlerts)
-  const [videoKey, setVideoKey] = useState(0) // 비디오 리로드를 위한 키
+  const [waterLevel, setWaterLevel] = useState([])
+  const [flowVelocity, setFlowVelocity] = useState([])
+  const [discharge, setDischarge] = useState([])
+  const [alerts, setAlerts] = useState([])
+  const [flowInfo, setFlowInfo] = useState(null)
+  const [realtimeData, setRealtimeData] = useState(null)
+  const [videoKey, setVideoKey] = useState(0)
 
   // 실시간 데이터 업데이트
   useEffect(() => {
-    const updateData = async () => {
-      setIsLoading(true)
+    const updateRealtimeData = async () => {
       try {
-        // Python 백엔드에서 데이터 가져오기
-        const timeseriesData = await apiService.getTimeseriesData(selectedLocation)
-        const alertsData = await apiService.getAlerts()
-
-        if (timeseriesData) {
-          setWaterLevel(timeseriesData.waterLevel || initialWaterLevel)
-          setFlowVelocity(timeseriesData.flowVelocity || initialFlowFlux)
-          setDischarge(timeseriesData.discharge || initialFlowRate)
+        const realtimeResponse = await apiService.getRealtimeData(selectedLocation)
+        if (realtimeResponse && realtimeResponse.status === 'success') {
+          setRealtimeData(realtimeResponse)
+          setLastUpdate(new Date())
+          setIsOnline(true)
         }
-
-        if (alertsData) {
-          setAlerts(alertsData.alerts || initialAlerts)
-        }
-
-        setLastUpdate(new Date())
-        setIsOnline(true)
       } catch (error) {
-        console.error('데이터 업데이트 실패:', error)
+        console.error('실시간 데이터 업데이트 실패:', error)
         setIsOnline(false)
-      } finally {
-        setIsLoading(false)
+      }
+    }
+
+    const updateChartData = async () => {
+      try {
+        const timeseriesResponse = await apiService.getTimeseriesData(selectedLocation, '1h')
+        if (timeseriesResponse && timeseriesResponse.status === 'success') {
+          setWaterLevel(timeseriesResponse.waterLevel || [])
+          setFlowVelocity(timeseriesResponse.flowVelocity || [])
+          setDischarge(timeseriesResponse.discharge || [])
+        }
+      } catch (error) {
+        console.error('차트 데이터 업데이트 실패:', error)
+      }
+    }
+
+    const updateAlerts = async () => {
+      try {
+        const alertsResponse = await apiService.getAlerts()
+        if (alertsResponse && alertsResponse.status === 'success') {
+          setAlerts(alertsResponse.alerts || [])
+        }
+      } catch (error) {
+        console.error('알림 데이터 업데이트 실패:', error)
       }
     }
 
     // 초기 로드
-    updateData()
+    const updateFlowInfo = async () => {
+      try {
+        const flowInfoResponse = await apiService.getFlowInfo()
+        if (flowInfoResponse && flowInfoResponse.status === 'success') {
+          setFlowInfo(flowInfoResponse)
+        }
+      } catch (error) {
+        console.error('하천 정보 업데이트 실패:', error)
+      }
+    }
 
-    // 5초마다 자동 업데이트
-    const interval = setInterval(updateData, 5000)
-    return () => clearInterval(interval)
+    const initData = async () => {
+      setIsLoading(true)
+      await Promise.all([updateRealtimeData(), updateChartData(), updateAlerts(), updateFlowInfo()])
+      setIsLoading(false)
+    }
+
+    initData()
+
+    const realtimeInterval = setInterval(updateRealtimeData, 60000) //1분마다 갱신
+    const chartInterval = setInterval(updateChartData, 300000) //5분마다 갱신
+    const alertInterval = setInterval(updateAlerts, 300000) //5분마다 갱신
+
+    return () => {
+      clearInterval(realtimeInterval)
+      clearInterval(chartInterval)
+      clearInterval(alertInterval)
+    }
   }, [selectedLocation])
 
   // 온라인 상태 감지
@@ -355,6 +370,15 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
 
   // KPI 계산
   const kpis = useMemo(() => {
+    if (realtimeData) {
+      return {
+        levelCm: realtimeData.flow_waterlevel || 0,
+        velocityMs: realtimeData.flow_rate || 0,
+        dischargeM3s: realtimeData.flow_flux || 0,
+        trend: 0
+      }
+    }
+
     const latestWater = waterLevel[waterLevel.length - 1]
     const latestVelocity = flowVelocity[flowVelocity.length - 1]
     const latestDischarge = discharge[discharge.length - 1]
@@ -366,9 +390,8 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
       trend: waterLevel.length > 1 ?
         ((latestWater?.h ?? 0) - (waterLevel[waterLevel.length - 2]?.h ?? 0)) : 0
     }
-  }, [waterLevel, flowVelocity, discharge])
+  }, [realtimeData, waterLevel, flowVelocity, discharge])
 
-  // 위험도 계산
   const riskLevel = useMemo(() => {
     if (kpis.levelCm > 15) return { level: 'critical', label: '위험', color: 'text-red-500' }
     if (kpis.levelCm > 10) return { level: 'warning', label: '주의', color: 'text-yellow-500' }
@@ -452,6 +475,21 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
               </div>
             </div>
           </div>
+
+          {/* 현재 하천 정보 */}
+          {flowInfo && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">하천 정보</h3>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-blue-900">{flowInfo.flow_name}</div>
+                <div className="text-xs text-blue-600 mt-1">{flowInfo.flow_region} 지역</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  위도: {flowInfo.flow_latitude?.toFixed(6)}<br/>
+                  경도: {flowInfo.flow_longitude?.toFixed(6)}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 알림 설정 */}
           <div>
@@ -550,7 +588,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
         </header>
 
         {/* 대시보드 콘텐츠 */}
-        <main className="p-4 space-y-6 flex-1">
+        <main className="p-4 space-y-8 flex-1">
           {/* KPI 카드들 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
@@ -572,7 +610,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
             />
             <KpiCard
               title="유량"
-              value={`${kpis.dischargeM3s.toFixed(0)}`}
+              value={`${kpis.dischargeM3s.toFixed(1)}`}
               unit="m³/s"
               subtitle="Q = A × v"
               icon={<Droplets className="h-5 w-5" />}
@@ -588,32 +626,22 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
             />
           </div>
 
-          {/* CCTV 및 차트 영역 */}
+          {/* CCTV 및 알림/지도 영역 */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* CCTV 실시간 분석 */}
             <div className="xl:col-span-2">
               <Panel title="CCTV 실시간 분석" subtitle={`${currentLocation?.name} 위치`}>
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-slate-900">
-                  {/* 각 위치별 다른 영상 재생 */}
                   <video
-                    key={videoKey} // 위치 변경 시 비디오 리로드
+                    key={videoKey}
                     className="absolute inset-0 w-full h-full object-cover"
                     autoPlay
                     loop
                     muted
                     playsInline
-                    onError={(e) => console.log('비디오 로드 에러:', e)}
                   >
                     <source src={currentLocation?.videoPath} type="video/mp4" />
                     <source src={currentLocation?.videoPath?.replace('.mp4', '.webm')} type="video/webm" />
-                    {/* 비디오가 로드되지 않을 때 폴백 */}
-                    <div className="absolute inset-0 flex items-center justify-center text-white bg-slate-900">
-                      <div className="text-center">
-                        <Camera className="h-12 w-12 mx-auto mb-3 opacity-60" />
-                        <div className="text-lg font-medium">영상 로딩 중...</div>
-                        <div className="text-sm opacity-75">{currentLocation?.name} 위치 영상</div>
-                      </div>
-                    </div>
                   </video>
 
                   {/* 수위 라인 표시 */}
@@ -641,16 +669,21 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
                     <div className="px-2 py-1 bg-black/60 text-white text-xs rounded">
                       수위: {kpis.levelCm.toFixed(1)}cm
                     </div>
+                    {realtimeData?.flow_time && (
+                      <div className="px-2 py-1 bg-black/60 text-white text-xs rounded">
+                        {new Date(realtimeData.flow_time).toLocaleTimeString('ko-KR')}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Panel>
             </div>
 
-            {/* 알림 및 로그 */}
-            <div className="space-y-4">
+            {/* 알림 및 지도 */}
+            <div className="space-y-6">
               <Panel title="실시간 알림">
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {alerts.map((alert) => (
+                <div className="space-y-2 h-64 overflow-y-auto">
+                  {alerts.length > 0 ? alerts.map((alert) => (
                     <div
                       key={alert.id}
                       className={`p-3 rounded-lg border-l-4 ${
@@ -673,15 +706,19 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-center text-sm text-gray-500 py-8">
+                      현재 알림이 없습니다
+                    </div>
+                  )}
                 </div>
               </Panel>
 
               <Panel title="위치 정보">
                 <div className="space-y-3">
-                  <KakaoMap selectedLocation={selectedLocation} />
+                  <KakaoMap selectedLocation={selectedLocation} flowInfo={flowInfo} />
                   <div className="text-xs text-gray-500 space-y-1">
-                    <div>• 영오지하차도 (칠곡 지천면)</div>
+                    <div>• {flowInfo?.flow_name || '영오지하차도'}</div>
                     <div>• {currentLocation?.address}</div>
                   </div>
                 </div>
@@ -781,7 +818,7 @@ function KpiCard({ title, value, unit, subtitle, icon, trend, color = "blue" }) 
           {icon}
           <span>{title}</span>
         </div>
-        {trend !== undefined && (
+        {trend !== undefined && trend !== 0 && (
           <div className={`flex items-center gap-1 text-xs ${
             trend > 0 ? 'text-red-500' : trend < 0 ? 'text-blue-500' : 'text-gray-400'
           }`}>
