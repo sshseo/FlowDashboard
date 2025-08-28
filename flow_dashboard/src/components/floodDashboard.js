@@ -10,6 +10,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 import { locations, UPDATE_INTERVALS } from '../utils/constants'
 import { calculateKpis, calculateRiskLevel, formatTime } from '../utils/formatters'
 import { apiService } from '../services/apiService'
+import websocketService from '../services/websocketService'
 import { OnlineStatus, LocationStatus } from './common/StatusIndicator'
 import { LoadingSpinner } from './common/Loading'
 import KpiCard from './charts/KpiCard'
@@ -37,6 +38,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   const [flowInfo, setFlowInfo] = useState(null)
   const [realtimeData, setRealtimeData] = useState(null)
   const [videoKey, setVideoKey] = useState(0)
+  //const [wsConnected, setWsConnected] = useState(false)
 
   // 실시간 데이터 업데이트
   useEffect(() => {
@@ -99,14 +101,53 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
 
     const realtimeInterval = setInterval(updateRealtimeData, UPDATE_INTERVALS.REALTIME)
     const chartInterval = setInterval(updateChartData, UPDATE_INTERVALS.CHART)
-    const alertInterval = setInterval(updateAlerts, UPDATE_INTERVALS.ALERTS)
+    // 알람은 WebSocket으로 실시간 수신하므로 폴링 제거
 
     return () => {
       clearInterval(realtimeInterval)
       clearInterval(chartInterval)
-      clearInterval(alertInterval)
     }
   }, [selectedLocation])
+
+  // WebSocket 연결 및 실시간 알람 수신
+  useEffect(() => {
+    // WebSocket 연결
+    websocketService.connect()
+
+    // 연결 상태 콜백
+    const handleConnection = (data) => {
+      console.log('WebSocket 연결 상태:', data.status)
+    }
+
+    // 알람 업데이트 콜백
+    const handleAlertUpdate = (messageData) => {
+      console.log('WebSocket 알람 업데이트 수신:', messageData)
+      const { alert_type, data: alertData } = messageData
+
+      if (alert_type === 'alert_added') {
+        console.log('알람 추가:', alertData)
+        // 새 알람 추가
+        setAlerts(prevAlerts => [alertData, ...prevAlerts])
+      } else if (alert_type === 'alert_deleted') {
+        console.log('알람 삭제:', alertData)
+        // 알람 삭제
+        setAlerts(prevAlerts => 
+          prevAlerts.filter(alert => alert.id !== alertData.id)
+        )
+      }
+    }
+
+    // 콜백 등록
+    websocketService.onConnection(handleConnection)
+    websocketService.onAlertUpdate(handleAlertUpdate)
+
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      websocketService.removeCallback('connection', handleConnection)
+      websocketService.removeCallback('alert_update', handleAlertUpdate)
+      websocketService.disconnect()
+    }
+  }, [])
 
   // 온라인 상태 감지
   useEffect(() => {
@@ -133,6 +174,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
       onLogout()
     }
   }
+
 
   // KPI 계산
   const kpis = useMemo(() => 
@@ -275,6 +317,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
             </div>
 
             <div className="flex items-center gap-2">
+              
               <button
                 onClick={() => window.location.reload()}
                 disabled={isLoading}

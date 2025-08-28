@@ -202,3 +202,99 @@ class FlowService:
 
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"알람 조회 오류: {str(e)}")
+
+    async def add_alert(self, alert_message: str, alert_type: str = "주의") -> Dict:
+        """새로운 알람 추가 및 WebSocket 브로드캐스트"""
+        from app.routers.websocket import broadcast_alert_update
+        
+        db_pool = get_db_pool()
+
+        async with db_pool.acquire() as conn:
+            try:
+                # 알람 추가
+                query = """
+                INSERT INTO alert_info (flow_uid, alert_date, alert_message, alert_type)
+                VALUES ($1, $2, $3, $4)
+                RETURNING alert_uid
+                """
+                
+                alert_uid = await conn.fetchval(
+                    query, 
+                    self.flow_uid, 
+                    datetime.now(), 
+                    alert_message, 
+                    alert_type
+                )
+
+                # 새 알람 데이터
+                new_alert = {
+                    "id": f"AL-{alert_uid:03d}",
+                    "ts": datetime.now().strftime('%H:%M'),
+                    "level": self._map_alert_level(alert_type),
+                    "message": alert_message,
+                    "location": "중앙"
+                }
+
+                # WebSocket으로 실시간 브로드캐스트
+                await broadcast_alert_update("alert_added", new_alert)
+
+                return {
+                    "alert": new_alert,
+                    "status": "success"
+                }
+
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"알람 추가 오류: {str(e)}")
+
+    async def delete_alert(self, alert_uid: int) -> Dict:
+        """알람 삭제 및 WebSocket 브로드캐스트"""
+        from app.routers.websocket import broadcast_alert_update
+        
+        db_pool = get_db_pool()
+
+        async with db_pool.acquire() as conn:
+            try:
+                # 삭제할 알람 정보 조회
+                alert_query = """
+                SELECT alert_uid, alert_message, alert_type 
+                FROM alert_info 
+                WHERE alert_uid = $1 AND flow_uid = $2
+                """
+                
+                alert_row = await conn.fetchrow(alert_query, alert_uid, self.flow_uid)
+                
+                if not alert_row:
+                    raise HTTPException(status_code=404, detail="알람을 찾을 수 없습니다")
+
+                # 알람 삭제
+                delete_query = "DELETE FROM alert_info WHERE alert_uid = $1 AND flow_uid = $2"
+                await conn.execute(delete_query, alert_uid, self.flow_uid)
+
+                # 삭제된 알람 정보
+                deleted_alert = {
+                    "id": f"AL-{alert_uid:03d}",
+                    "message": alert_row['alert_message'],
+                    "level": self._map_alert_level(alert_row['alert_type'])
+                }
+
+                # WebSocket으로 실시간 브로드캐스트
+                await broadcast_alert_update("alert_deleted", deleted_alert)
+
+                return {
+                    "deleted_alert": deleted_alert,
+                    "status": "success"
+                }
+
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"알람 삭제 오류: {str(e)}")
+
+    def _map_alert_level(self, alert_type: str) -> str:
+        """alert_type을 레벨로 매핑"""
+        level_map = {
+            "긴급": "CRITICAL",
+            "주의": "WARNING", 
+            "경계": "WARNING",
+            "대피": "CRITICAL",
+            "정상": "INFO"
+        }
+        return level_map.get(alert_type, "INFO")

@@ -1,5 +1,5 @@
 # app/routers/flow.py
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Form
 from typing import Optional
 from app.services.flow_service import FlowService
 from app.dependencies import get_current_user
@@ -18,7 +18,7 @@ async def get_realtime_data(
 @router.get("/timeseries/{location_id}")
 async def get_timeseries_data(
         location_id: str,
-        time_range: str = Query("1h", description="시간 범위: 1h, 6h, 12h, 24h, 7d"),
+        time_range: str = Query("7d", description="시간 범위: 1h, 6h, 12h, 24h, 7d"),
         current_user: str = Depends(get_current_user)
 ):
     """시계열 데이터 조회"""
@@ -79,3 +79,20 @@ async def health_check():
             "connected_sites": 0,
             "error": str(e)
         }
+
+@router.post("/alerts")
+async def add_alert(
+        alert_message: str = Form(...),
+        alert_type: str = Form("주의"),
+        current_user: str = Depends(get_current_user)
+):
+    """새로운 알람 추가"""
+    return await flow_service.add_alert(alert_message, alert_type)
+
+@router.delete("/alerts/{alert_uid}")
+async def delete_alert(
+        alert_uid: int,
+        current_user: str = Depends(get_current_user)
+):
+    """알람 삭제"""
+    return await flow_service.delete_alert(alert_uid)
