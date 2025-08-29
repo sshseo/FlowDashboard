@@ -127,7 +127,8 @@ class FlowService:
                     flow_name,
                     flow_latitude,
                     flow_longitude,
-                    flow_region
+                    flow_region,
+                    flow_address
                 FROM flow_info 
                 WHERE flow_uid = $1
                 """
@@ -140,6 +141,7 @@ class FlowService:
                         "flow_latitude": 35.923508,
                         "flow_longitude": 128.519230,
                         "flow_region": "칠곡",
+                        "flow_address": "경북 칠곡군 지천면 영오리 894",
                         "status": "default"
                     }
 
@@ -148,6 +150,7 @@ class FlowService:
                     "flow_latitude": float(row['flow_latitude']),
                     "flow_longitude": float(row['flow_longitude']),
                     "flow_region": row['flow_region'] or "칠곡",
+                    "flow_address": row['flow_address'] or "경북 칠곡군 지천면 영오리 894",
                     "status": "success"
                 }
 

@@ -7,7 +7,7 @@ import {
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area } from 'recharts'
 
 // 모듈화된 임포트
-import { locations, UPDATE_INTERVALS } from '../utils/constants'
+import { UPDATE_INTERVALS } from '../utils/constants'
 import { calculateKpis, calculateRiskLevel, formatTime } from '../utils/formatters'
 import { apiService } from '../services/apiService'
 import websocketService from '../services/websocketService'
@@ -23,7 +23,7 @@ import VideoPlayer from './dashboard/VideoPlayer'
 
 export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   // 상태 관리
-  const [selectedLocation, setSelectedLocation] = useState('center')
+  // const [selectedLocation, setSelectedLocation] = useState('center')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(new Date())
@@ -44,7 +44,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   useEffect(() => {
     const updateRealtimeData = async () => {
       try {
-        const realtimeResponse = await apiService.getRealtimeData(selectedLocation)
+        const realtimeResponse = await apiService.getRealtimeData('center')
         if (realtimeResponse && realtimeResponse.status === 'success') {
           setRealtimeData(realtimeResponse)
           setLastUpdate(new Date())
@@ -58,7 +58,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
 
     const updateChartData = async () => {
       try {
-        const timeseriesResponse = await apiService.getTimeseriesData(selectedLocation, '1h')
+        const timeseriesResponse = await apiService.getTimeseriesData('center', '1h')
         if (timeseriesResponse && timeseriesResponse.status === 'success') {
           setWaterLevel(timeseriesResponse.waterLevel || [])
           setFlowVelocity(timeseriesResponse.flowVelocity || [])
@@ -107,7 +107,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
       clearInterval(realtimeInterval)
       clearInterval(chartInterval)
     }
-  }, [selectedLocation])
+  }, [])
 
   // WebSocket 연결 및 실시간 알람 수신
   useEffect(() => {
@@ -163,10 +163,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
     }
   }, [])
 
-  // 위치 변경 시 비디오 리로드
+  // 초기 비디오 로드
   useEffect(() => {
     setVideoKey(prev => prev + 1)
-  }, [selectedLocation])
+  }, [])
 
   // 로그아웃 처리
   const handleLogout = () => {
@@ -187,7 +187,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
     [kpis.levelCm]
   )
 
-  const currentLocation = locations.find(loc => loc.id === selectedLocation)
+  // const currentLocation = locations.find(loc => loc.id === selectedLocation)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 lg:flex">
@@ -310,7 +310,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
                 <div>
                   <h1 className="text-lg font-semibold sm:text-xl">AI CCTV 수위 모니터링</h1>
                   <p className="text-xs text-gray-500 hidden sm:block">
-                    {currentLocation?.name} | 실시간 분석 시스템
+                    {flowInfo?.flow_name || '모니터링 지점'} | 실시간 분석 시스템
                   </p>
                 </div>
               </div>
@@ -416,9 +416,9 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* CCTV 실시간 분석 */}
             <div className="xl:col-span-2">
-              <Panel title="CCTV 실시간 분석" subtitle={`${currentLocation?.name} 위치`}>
+              <Panel title="CCTV 실시간 분석" subtitle={`${flowInfo?.flow_region || '모니터링'} 위치`}>
                 <VideoPlayer 
-                  videoPath={currentLocation?.videoPath}
+                  videoPath="/videos/영오지하도.mp4"
                   waterLevel={kpis.levelCm}
                   realtimeData={realtimeData}
                   videoKey={videoKey}
@@ -463,10 +463,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
 
               <Panel title="위치 정보">
                 <div className="space-y-3">
-                  <KakaoMap selectedLocation={selectedLocation} flowInfo={flowInfo} />
+                  <KakaoMap flowInfo={flowInfo} />
                   <div className="text-xs text-gray-500 space-y-1">
                     <div>• {flowInfo?.flow_name || '영오지하차도'}</div>
-                    <div>• {currentLocation?.address}</div>
+                    <div>• {flowInfo?.flow_address}</div>
                   </div>
                 </div>
               </Panel>

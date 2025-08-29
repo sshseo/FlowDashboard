@@ -1,14 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { locations } from '../../utils/constants'
 import { MapLoading } from '../common/Loading'
 import { MapError } from '../common/ErrorMessage'
 
-export default function KakaoMap({ selectedLocation, flowInfo }) {
+export default function KakaoMap({ flowInfo }) {
   const mapRef = useRef(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadError, setLoadError] = useState(null)
-
-  const currentLocation = locations.find(loc => loc.id === selectedLocation)
 
   useEffect(() => {
     if (window.kakao && window.kakao.maps) {
@@ -59,11 +56,13 @@ export default function KakaoMap({ selectedLocation, flowInfo }) {
   }, [])
 
   useEffect(() => {
-    if (!isLoaded || !currentLocation || !mapRef.current) return
+    if (!isLoaded || !flowInfo || !mapRef.current) return
 
     try {
-      const lat = flowInfo?.flow_latitude || currentLocation.lat
-      const lng = flowInfo?.flow_longitude || currentLocation.lng
+      const lat = flowInfo.flow_latitude
+      const lng = flowInfo.flow_longitude
+
+      if (!lat || !lng) return
 
       const container = mapRef.current
       const options = {
@@ -78,17 +77,17 @@ export default function KakaoMap({ selectedLocation, flowInfo }) {
       const markerPosition = new window.kakao.maps.LatLng(lat, lng)
       const marker = new window.kakao.maps.Marker({
         position: markerPosition,
-        title: `${currentLocation.name} 모니터링 지점`
+        title: `${flowInfo.flow_name} 모니터링 지점`
       })
 
       marker.setMap(map)
 
-      const flowName = flowInfo?.flow_name || '영오지하차도'
       const infowindow = new window.kakao.maps.InfoWindow({
         content: `
           <div style="padding:8px; font-size:12px; width:200px; text-align:center;">
-            <strong style="color:#2563eb;">${flowName}</strong><br/>
-            <span style="color:#666; font-size:11px;">${currentLocation.name} 모니터링 지점</span><br/>
+            <strong style="color:#2563eb;">${flowInfo.flow_name}</strong><br/>
+            <span style="color:#666; font-size:11px;">${flowInfo.flow_region} 모니터링 지점</span><br/>
+            <span style="color:#888; font-size:10px;">${flowInfo.flow_address}</span><br/>
             <span style="color:#10b981; font-size:10px;">🟢 수위센서 + AI CCTV 정상 작동</span>
           </div>
         `,
@@ -108,7 +107,7 @@ export default function KakaoMap({ selectedLocation, flowInfo }) {
     } catch (error) {
       setLoadError('지도 초기화에 실패했습니다')
     }
-  }, [isLoaded, currentLocation, flowInfo])
+  }, [isLoaded, flowInfo])
 
   if (!isLoaded && !loadError) {
     return <MapLoading />
