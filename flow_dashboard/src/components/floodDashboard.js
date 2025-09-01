@@ -8,6 +8,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 
 // 모듈화된 임포트
 import { UPDATE_INTERVALS } from '../utils/constants'
+import { locations } from '../utils/constants'
 import { calculateKpis, calculateRiskLevel, formatTime } from '../utils/formatters'
 import { apiService } from '../services/apiService'
 import websocketService from '../services/websocketService'
@@ -23,7 +24,7 @@ import VideoPlayer from './dashboard/VideoPlayer'
 
 export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   // 상태 관리
-  // const [selectedLocation, setSelectedLocation] = useState('center')
+  const [selectedLocation, setSelectedLocation] = useState('center')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(new Date())
@@ -163,10 +164,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
     }
   }, [])
 
-  // 초기 비디오 로드
+  // 초기 비디오 로드 및 위치 변경시 비디오 새로고침
   useEffect(() => {
     setVideoKey(prev => prev + 1)
-  }, [])
+  }, [selectedLocation])
 
   // 로그아웃 처리
   const handleLogout = () => {
@@ -187,7 +188,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
     [kpis.levelCm]
   )
 
-  // const currentLocation = locations.find(loc => loc.id === selectedLocation)
+  const currentLocation = locations.find(loc => loc.id === selectedLocation)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 lg:flex">
@@ -269,8 +270,8 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
                 <div className="text-sm font-medium text-blue-900">{flowInfo.flow_name}</div>
                 <div className="text-xs text-blue-600 mt-1">{flowInfo.flow_region} 지역</div>
                 <div className="text-xs text-gray-500 mt-1">
-                  위도: {flowInfo.flow_latitude?.toFixed(6)}<br/>
-                  경도: {flowInfo.flow_longitude?.toFixed(6)}
+                  위도: {flowInfo.flow_latitude?.toFixed(2)}<br/>
+                  경도: {flowInfo.flow_longitude?.toFixed(2)}
                 </div>
               </div>
             </div>
@@ -326,7 +327,11 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
               >
                 {isLoading ? <LoadingSpinner size="small" /> : <RefreshCw className="h-4 w-4" />}
               </button>
-              <div className={`px-2 py-1 rounded-full text-xs font-medium ${riskLevel.color} bg-current bg-opacity-10`}>
+              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                riskLevel.level === 'critical' ? 'text-white bg-red-500' :
+                riskLevel.level === 'warning' ? 'text-white bg-yellow-500' :
+                'text-white bg-green-500'
+              }`}>
                 {riskLevel.label}
               </div>
 
@@ -337,7 +342,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
                   className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg"
                 >
                   <User className="h-4 w-4" />
-                  <span className="text-sm font-medium hidden sm:block">
+                  <span className="text-sm font-medium">
                     {userInfo?.user_name || '사용자'}
                   </span>
                 </button>
@@ -416,9 +421,9 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* CCTV 실시간 분석 */}
             <div className="xl:col-span-2">
-              <Panel title="CCTV 실시간 분석" subtitle={`${flowInfo?.flow_region || '모니터링'} 위치`}>
+              <Panel title="CCTV 실시간 분석" subtitle={`${currentLocation?.name || '중앙'} - ${flowInfo?.flow_region || '모니터링'} 위치`}>
                 <VideoPlayer 
-                  videoPath="/videos/영오지하도.mp4"
+                  videoPath={currentLocation?.videoPath || "/videos/영오지하도.mp4"}
                   waterLevel={kpis.levelCm}
                   realtimeData={realtimeData}
                   videoKey={videoKey}

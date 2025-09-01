@@ -1,5 +1,5 @@
 // API 설정
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001'
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://222.103.78.124:8001'
 
 // 위치 정보
 export const locations = [
