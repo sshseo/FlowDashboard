@@ -12,8 +12,10 @@ import { locations } from '../utils/constants'
 import { calculateKpis, calculateRiskLevel, formatTime } from '../utils/formatters'
 import { apiService } from '../services/apiService'
 import websocketService from '../services/websocketService'
+import sessionManager from '../utils/sessionManager'
 import { OnlineStatus, LocationStatus } from './common/StatusIndicator'
 import { LoadingSpinner } from './common/Loading'
+import SessionTimeoutModal from './common/SessionTimeoutModal'
 import KpiCard from './charts/KpiCard'
 import ChartCard from './charts/ChartCard'
 import Panel from './dashboard/Panel'
@@ -30,6 +32,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [isLoading, setIsLoading] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+
+  // 세션 타임아웃 상태
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false)
+  const [sessionRemainingTime, setSessionRemainingTime] = useState(0)
 
   // 데이터 상태
   const [waterLevel, setWaterLevel] = useState([])
@@ -169,11 +175,56 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
     setVideoKey(prev => prev + 1)
   }, [selectedLocation])
 
+  // 세션 타임아웃 관리
+  useEffect(() => {
+    // 세션 타임아웃 시작
+    sessionManager.start(
+      // 타임아웃 콜백 (자동 로그아웃)
+      () => {
+        console.log('세션 타임아웃 - 자동 로그아웃')
+        setShowTimeoutModal(false)
+        if (window.confirm('세션이 만료되어 자동으로 로그아웃됩니다.')) {
+          onLogout()
+        } else {
+          onLogout()
+        }
+      },
+      // 경고 콜백 (5분 전 알림)
+      () => {
+        console.log('세션 타임아웃 경고 표시')
+        const remaining = sessionManager.getRemainingTime()
+        setSessionRemainingTime(remaining)
+        setShowTimeoutModal(true)
+      }
+    )
+
+    // 컴포넌트 언마운트 시 세션 관리 중지
+    return () => {
+      sessionManager.stop()
+    }
+  }, [onLogout])
+
   // 로그아웃 처리
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
+      sessionManager.stop()
       onLogout()
     }
+  }
+
+  // 세션 연장 처리
+  const handleSessionExtend = () => {
+    console.log('사용자가 세션 연장 선택')
+    sessionManager.extend()
+    setShowTimeoutModal(false)
+  }
+
+  // 세션 타임아웃으로 인한 로그아웃
+  const handleSessionLogout = () => {
+    console.log('사용자가 로그아웃 선택')
+    setShowTimeoutModal(false)
+    sessionManager.stop()
+    onLogout()
   }
 
 
@@ -484,7 +535,14 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={waterLevel}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="t" fontSize={12} />
+                  <XAxis 
+                    dataKey="t" 
+                    fontSize={10}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
                   <YAxis fontSize={12} />
                   <Tooltip
                     formatter={(value) => [`${value}cm`, '수위']}
@@ -505,7 +563,14 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={flowVelocity}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="t" fontSize={12} />
+                  <XAxis 
+                    dataKey="t" 
+                    fontSize={10}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
                   <YAxis fontSize={12} />
                   <Tooltip
                     formatter={(value) => [`${value}m/s`, '유속']}
@@ -525,7 +590,14 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={discharge}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="t" fontSize={12} />
+                  <XAxis 
+                    dataKey="t" 
+                    fontSize={10}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
                   <YAxis fontSize={12} />
                   <Tooltip
                     formatter={(value) => [`${value}m³/s`, '유량']}
@@ -550,6 +622,14 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
           </div>
         </footer>
       </div>
+
+      {/* 세션 타임아웃 모달 */}
+      <SessionTimeoutModal
+        isOpen={showTimeoutModal}
+        remainingSeconds={sessionRemainingTime}
+        onExtend={handleSessionExtend}
+        onLogout={handleSessionLogout}
+      />
     </div>
   )
 }

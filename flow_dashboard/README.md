@@ -1,6 +1,10 @@
-# Frontend - React 대시보드
+# 🌊 Frontend - React 대시보드
 
-> AI CCTV 수위 모니터링 시스템의 프론트엔드 대시보드 (React + PWA)
+> **전자정부 표준 준수** AI CCTV 수위 모니터링 시스템의 프론트엔드 대시보드 (React + PWA + 보안 강화)
+
+[![Security](https://img.shields.io/badge/Security-Government%20Standard-green.svg)](https://github.com)
+[![PWA Ready](https://img.shields.io/badge/PWA-Ready-blue.svg)](https://github.com)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://github.com)
 
 ## 🚀 빠른 시작
 
@@ -146,19 +150,60 @@ websocketService.onAlertUpdate((data) => {
 })
 ```
 
-## 🔐 인증 시스템
+## 🔐 보안 시스템 (전자정부 표준 준수)
 
-### JWT 토큰 관리
-- **자동 헤더 추가**: Authorization Bearer
-- **토큰 저장**: localStorage/sessionStorage
-- **만료 처리**: 자동 로그아웃
+### ✅ 구현된 보안 기능
 
-### 권한 검사
+#### 1. **세션 관리**
+- **자동 타임아웃**: 30분 비활성시 자동 로그아웃
+- **경고 알림**: 5분 전 모달 팝업
+- **활동 감지**: 마우스, 키보드, 스크롤 등 7가지 이벤트
+- **세션 연장**: 사용자 선택으로 연장 가능
+
 ```javascript
-// 모든 API 호출에서 자동 인증 헤더 추가
-const response = await fetch(url, {
-  headers: apiService.getAuthHeaders()
-})
+// SessionManager.js - 세션 관리
+class SessionManager {
+  constructor() {
+    this.timeout = 30 * 60 * 1000; // 30분
+    this.warningTime = 5 * 60 * 1000; // 5분 전 경고
+    this.activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+  }
+}
+```
+
+#### 2. **JWT 토큰 보안**
+- **자동 헤더 추가**: Authorization Bearer
+- **안전한 저장**: localStorage/sessionStorage
+- **만료 처리**: 자동 로그아웃 및 리다이렉트
+- **토큰 갱신**: 백엔드와 동기화
+
+```javascript
+// authService.js - 토큰 관리
+const authService = {
+  getAuthHeaders: () => ({
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'Content-Type': 'application/json'
+  }),
+  
+  logout: () => {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  }
+}
+```
+
+#### 3. **입력 검증 및 보안**
+- **XSS 방지**: 사용자 입력 sanitization
+- **CSRF 보호**: 토큰 기반 요청 검증
+- **입력 길이 제한**: 버퍼 오버플로우 방지
+- **특수문자 필터링**: SQL 인젝션 방지
+
+```javascript
+// 입력 검증 예시
+const validateInput = (input) => {
+  const sanitized = input.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  return sanitized.length > 1000 ? sanitized.substring(0, 1000) : sanitized;
+}
 ```
 
 ## 📱 PWA 구성

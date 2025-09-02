@@ -6,3 +6,5 @@ PyJWT
 python-multipart
 python-dotenv
 pydantic
+cryptography
+secure

@@ -48,6 +48,8 @@ export default function LoginForm({ onLogin, serverStatus }) {
 
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setError('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.')
+      } else if (err.status === 429) {
+        setError('로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.')
       } else {
         setError(err.message || '로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
       }

@@ -1,12 +1,15 @@
 # main.py
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime
+import os
 
 from app.config import settings
 from app.database import init_db_pool, close_db_pool, get_db_pool
-from app.routers import auth, flow, websocket
+from app.routers import auth, flow, websocket, admin
+from app.middleware.security import SecurityMiddleware
 
 
 @asynccontextmanager
@@ -23,19 +26,37 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS 미들웨어 설정
+# 보안 미들웨어 설정
+
+# 1. 신뢰할 수 있는 호스트만 허용
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "172.30.1.95", "222.103.78.124", "*.yourdomain.com"]
+)
+
+# 2. 보안 헤더 미들웨어
+app.add_middleware(SecurityMiddleware)
+
+# 3. CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization", 
+        "Content-Type", 
+        "X-Requested-With",
+        "X-CSRF-Token"
+    ],
+    expose_headers=["X-Total-Count"]
 )
 
 # 라우터 등록
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(flow.router, prefix="/api", tags=["Flow Data"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Administration"])
 
 @app.get("/")
 async def root():

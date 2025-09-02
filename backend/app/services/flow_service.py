@@ -85,26 +85,41 @@ class FlowService:
                 water_level_data = []
                 flow_velocity_data = []
                 discharge_data = []
+                
+                prev_date = None
 
                 for row in rows:
+                    current_date = row['flow_time'].date()
                     time_str = row['flow_time'].strftime('%H:%M')
                     timestamp = row['flow_time'].isoformat()
-
+                    
+                    # 날짜가 바뀌었는지 확인
+                    date_changed = prev_date is None or current_date != prev_date
+                    display_text = f"{current_date.strftime('%m/%d')} {time_str}" if date_changed else time_str
+                    
                     water_level_data.append({
-                        "t": time_str,
+                        "t": display_text,
+                        "time_only": time_str,
+                        "date_changed": date_changed,
                         "h": float(row['flow_waterlevel']),
                         "timestamp": timestamp
                     })
 
                     flow_velocity_data.append({
-                        "t": time_str,
+                        "t": display_text,
+                        "time_only": time_str,
+                        "date_changed": date_changed,
                         "v": float(row['flow_rate']) / 10  # DB값을 10으로 나누어 m/s로 변환
                     })
 
                     discharge_data.append({
-                        "t": time_str,
+                        "t": display_text,
+                        "time_only": time_str,
+                        "date_changed": date_changed,
                         "q": float(row['flow_flux'])
                     })
+                    
+                    prev_date = current_date
 
                 return {
                     "waterLevel": water_level_data,
