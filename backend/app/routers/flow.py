@@ -10,19 +10,23 @@ flow_service = FlowService()
 @router.get("/realtime/{location_id}")
 async def get_realtime_data(
         location_id: str,
+        flow_uid: int = Query(1, description="하천 UID"),
         current_user: str = Depends(get_current_user)
 ):
     """실시간 하천 데이터 조회"""
-    return await flow_service.get_latest_flow_data(location_id)
+    service = FlowService(flow_uid)
+    return await service.get_latest_flow_data(location_id)
 
 @router.get("/timeseries/{location_id}")
 async def get_timeseries_data(
         location_id: str,
         time_range: str = Query("7d", description="시간 범위: 1h, 6h, 12h, 24h, 7d"),
+        flow_uid: int = Query(1, description="하천 UID"),
         current_user: str = Depends(get_current_user)
 ):
     """시계열 데이터 조회"""
-    return await flow_service.get_timeseries_data(location_id, time_range)
+    service = FlowService(flow_uid)
+    return await service.get_timeseries_data(location_id, time_range)
 
 @router.get("/alerts")
 async def get_alerts(

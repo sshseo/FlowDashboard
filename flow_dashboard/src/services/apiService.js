@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../utils/constants'
+import { weatherService } from './weatherService'
 
 // API 호출 서비스
 export const apiService = {
@@ -12,11 +13,18 @@ export const apiService = {
   },
 
   // 실시간 데이터 가져오기
-  getRealtimeData: async (locationId) => {
+  getRealtimeData: async (locationId, flowUid = 1) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/realtime/${locationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/realtime/${locationId}?flow_uid=${flowUid}`, {
         headers: apiService.getAuthHeaders()
       })
+      if (response.status === 401) {
+        console.warn('토큰 만료됨, 로그아웃 처리')
+        localStorage.removeItem('access_token')
+        sessionStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return null
+      }
       if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
       return await response.json()
     } catch (error) {
@@ -26,11 +34,18 @@ export const apiService = {
   },
 
   // 시계열 데이터 가져오기
-  getTimeseriesData: async (locationId, timeRange = '1h') => {
+  getTimeseriesData: async (locationId, timeRange = '1h', flowUid = 1) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/timeseries/${locationId}?range=${timeRange}`, {
+      const response = await fetch(`${API_BASE_URL}/api/timeseries/${locationId}?range=${timeRange}&flow_uid=${flowUid}`, {
         headers: apiService.getAuthHeaders()
       })
+      if (response.status === 401) {
+        console.warn('토큰 만료됨, 로그아웃 처리')
+        localStorage.removeItem('access_token')
+        sessionStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return null
+      }
       if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
       return await response.json()
     } catch (error) {
@@ -91,6 +106,16 @@ export const apiService = {
     } catch (error) {
       console.log('서버 상태 확인 실패:', error.message)
       throw error
+    }
+  },
+
+  // 현재 기온 정보 가져오기
+  getCurrentTemperature: async (lat = null, lon = null) => {
+    try {
+      return await weatherService.getCurrentWeather(lat, lon)
+    } catch (error) {
+      console.error('온도 데이터 로딩 실패:', error)
+      return weatherService.getMockTemperature()
     }
   }
 }

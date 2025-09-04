@@ -1,7 +1,13 @@
 import React from 'react'
 import { TrendingUp } from 'lucide-react'
-import { colorClasses } from '../../styles/commonStyles'
 import { formatNumber } from '../../utils/formatters'
+
+const colorClasses = {
+  blue: "from-blue-50 to-blue-100 border-blue-200",
+  green: "from-green-50 to-green-100 border-green-200", 
+  cyan: "from-cyan-50 to-cyan-100 border-cyan-200",
+  orange: "from-orange-50 to-orange-100 border-orange-200"
+}
 
 export default function KpiCard({ 
   title, 

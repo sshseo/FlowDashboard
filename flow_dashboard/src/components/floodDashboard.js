@@ -24,7 +24,7 @@ import VideoPlayer from './dashboard/VideoPlayer'
 
 
 
-export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
+export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }) {
   // 상태 관리
   const [selectedLocation, setSelectedLocation] = useState('center')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -45,13 +45,15 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   const [flowInfo, setFlowInfo] = useState(null)
   const [realtimeData, setRealtimeData] = useState(null)
   const [videoKey, setVideoKey] = useState(0)
+  const [currentTemperature, setCurrentTemperature] = useState(null)
   //const [wsConnected, setWsConnected] = useState(false)
 
   // 실시간 데이터 업데이트
   useEffect(() => {
     const updateRealtimeData = async () => {
       try {
-        const realtimeResponse = await apiService.getRealtimeData('center')
+        console.log('API 호출 location:', selectedLocation)
+        const realtimeResponse = await apiService.getRealtimeData(selectedLocation, flowUid)
         if (realtimeResponse && realtimeResponse.status === 'success') {
           setRealtimeData(realtimeResponse)
           setLastUpdate(new Date())
@@ -65,7 +67,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
 
     const updateChartData = async () => {
       try {
-        const timeseriesResponse = await apiService.getTimeseriesData('center', '1h')
+        const timeseriesResponse = await apiService.getTimeseriesData(selectedLocation, '1h', flowUid)
         if (timeseriesResponse && timeseriesResponse.status === 'success') {
           setWaterLevel(timeseriesResponse.waterLevel || [])
           setFlowVelocity(timeseriesResponse.flowVelocity || [])
@@ -98,9 +100,29 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
       }
     }
 
+    const updateTemperature = async () => {
+      try {
+        let lat, lon
+        if (flowInfo?.flow_latitude && flowInfo?.flow_longitude) {
+          lat = flowInfo.flow_latitude
+          lon = flowInfo.flow_longitude
+        }
+        
+        const temperatureData = await apiService.getCurrentTemperature(lat, lon)
+        if (temperatureData) {
+          console.log('온도 갱신:', temperatureData)
+          setCurrentTemperature(temperatureData)
+        }
+      } catch (error) {
+        console.error('온도 데이터 업데이트 실패:', error)
+      }
+    }
+
     const initData = async () => {
       setIsLoading(true)
       await Promise.all([updateRealtimeData(), updateChartData(), updateAlerts(), updateFlowInfo()])
+      // 온도 데이터는 flowInfo 로드 후에 별도로 호출
+      await updateTemperature()
       setIsLoading(false)
     }
 
@@ -108,13 +130,15 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
 
     const realtimeInterval = setInterval(updateRealtimeData, UPDATE_INTERVALS.REALTIME)
     const chartInterval = setInterval(updateChartData, UPDATE_INTERVALS.CHART)
+    const temperatureInterval = setInterval(updateTemperature, 300000) // 5분마다 온도 업데이트
     // 알람은 WebSocket으로 실시간 수신하므로 폴링 제거
 
     return () => {
       clearInterval(realtimeInterval)
       clearInterval(chartInterval)
+      clearInterval(temperatureInterval)
     }
-  }, [])
+  }, [flowInfo?.flow_latitude, flowInfo?.flow_longitude, selectedLocation, flowUid])
 
   // WebSocket 연결 및 실시간 알람 수신
   useEffect(() => {
@@ -174,6 +198,30 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
   useEffect(() => {
     setVideoKey(prev => prev + 1)
   }, [selectedLocation])
+
+  // flowInfo 변경시 온도 데이터 업데이트
+  useEffect(() => {
+    const updateTemperatureWhenLocationChanged = async () => {
+      if (flowInfo?.flow_latitude && flowInfo?.flow_longitude) {
+        try {
+          const temperatureData = await apiService.getCurrentTemperature(
+            flowInfo.flow_latitude, 
+            flowInfo.flow_longitude
+          )
+          if (temperatureData) {
+            setCurrentTemperature(temperatureData)
+          }
+        } catch (error) {
+          console.error('위치 변경시 온도 데이터 업데이트 실패:', error)
+        }
+      }
+    }
+
+    if (flowInfo) {
+      updateTemperatureWhenLocationChanged()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowInfo])
 
   // 세션 타임아웃 관리
   useEffect(() => {
@@ -275,6 +323,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
                 <button
                   key={location.id}
                   onClick={() => {
+                    console.log('위치 변경:', location.id)
                     setSelectedLocation(location.id)
                     setSidebarOpen(false)
                   }}
@@ -459,10 +508,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo }) {
               color="cyan"
             />
             <KpiCard
-              title="온도"
-              value="23.5"
+              title="기온"
+              value={currentTemperature ? currentTemperature.temperature.toFixed(1) : "--"}
               unit="°C"
-              subtitle="수온 센서"
+              subtitle={currentTemperature?.source === 'KMA_API' ? '기상청 API' : '예상 기온'}
               icon={<Thermometer className="h-5 w-5" />}
               color="orange"
             />

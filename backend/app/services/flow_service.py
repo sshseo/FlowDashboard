@@ -5,8 +5,8 @@ from app.database import get_db_pool
 from fastapi import HTTPException
 
 class FlowService:
-    def __init__(self):
-        self.flow_uid = 1  # 고정값으로 설정 (나중에 변경 가능)
+    def __init__(self, flow_uid: int = 1):
+        self.flow_uid = flow_uid  # 기본값 1, 나중에 동적으로 변경 가능
 
     async def get_latest_flow_data(self, location_id: str = None) -> Dict:
         """최신 하천 데이터 조회"""
