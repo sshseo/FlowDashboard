@@ -3,8 +3,8 @@ class WebSocketService {
   constructor() {
     this.ws = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectInterval = 3000;
+    this.maxReconnectAttempts = parseInt(process.env.REACT_APP_WS_MAX_RECONNECT_ATTEMPTS) || 5;
+    this.reconnectInterval = parseInt(process.env.REACT_APP_WS_RECONNECT_INTERVAL) || 3000;
     this.callbacks = {
       alert_update: [],
       system_status: [],
@@ -103,7 +103,7 @@ class WebSocketService {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send('ping');
       }
-    }, 30000); // 30초마다 ping
+    }, parseInt(process.env.REACT_APP_WS_PING_INTERVAL) || 30000); // 환경변수에서 ping 간격 설정
   }
 
   stopPing() {

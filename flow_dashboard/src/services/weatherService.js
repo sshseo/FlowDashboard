@@ -1,12 +1,12 @@
 // 기상청 API 서비스
 export const weatherService = {
   // 기상청 API 설정
-  API_BASE_URL: 'http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0',
+  API_BASE_URL: process.env.REACT_APP_WEATHER_API_BASE_URL || 'http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0',
   API_KEY: process.env.REACT_APP_WEATHER_API_KEY || '',
   
-  // 서울 중구 좌표 (예시 - 실제 지역에 맞게 수정 필요)
-  DEFAULT_NX: 60,
-  DEFAULT_NY: 127,
+  // 기본 좌표 (환경변수에서 설정)
+  DEFAULT_NX: parseInt(process.env.REACT_APP_DEFAULT_NX) || 60,
+  DEFAULT_NY: parseInt(process.env.REACT_APP_DEFAULT_NY) || 127,
 
   // 격자 좌표 변환 (위경도 -> 격자좌표) - 기상청 공식
   convertToGrid: (lat, lon) => {

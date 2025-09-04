@@ -130,7 +130,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
 
     const realtimeInterval = setInterval(updateRealtimeData, UPDATE_INTERVALS.REALTIME)
     const chartInterval = setInterval(updateChartData, UPDATE_INTERVALS.CHART)
-    const temperatureInterval = setInterval(updateTemperature, 300000) // 5분마다 온도 업데이트
+    const temperatureInterval = setInterval(updateTemperature, parseInt(process.env.REACT_APP_TEMPERATURE_UPDATE_INTERVAL) || 300000) // 환경변수에서 온도 업데이트 간격 설정
     // 알람은 WebSocket으로 실시간 수신하므로 폴링 제거
 
     return () => {
@@ -511,7 +511,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               title="기온"
               value={currentTemperature ? currentTemperature.temperature.toFixed(1) : "--"}
               unit="°C"
-              subtitle={currentTemperature?.source === 'KMA_API' ? '기상청 API' : '예상 기온'}
+              subtitle={currentTemperature?.source === 'KMA_API' ? '현재 온도' : '예상 기온'}
               icon={<Thermometer className="h-5 w-5" />}
               color="orange"
             />

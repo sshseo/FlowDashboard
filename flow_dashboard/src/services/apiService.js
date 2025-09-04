@@ -86,7 +86,7 @@ export const apiService = {
   checkServerHealth: async () => {
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      const timeoutId = setTimeout(() => controller.abort(), parseInt(process.env.REACT_APP_SERVER_HEALTH_TIMEOUT) || 5000)
 
       const response = await fetch(`${API_BASE_URL}/api/health`, {
         method: 'GET',

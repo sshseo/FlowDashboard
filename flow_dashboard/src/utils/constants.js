@@ -45,10 +45,10 @@ export const WATER_LEVEL_THRESHOLDS = {
   CRITICAL: 15
 }
 
-// 업데이트 간격 (ms)
+// 업데이트 간격 (ms) - 환경변수에서 설정
 export const UPDATE_INTERVALS = {
-  REALTIME: 60000,    // 1분
-  CHART: 300000,      // 5분
-  ALERTS: 300000,     // 5분
-  SERVER_STATUS: 30000 // 30초
+  REALTIME: parseInt(process.env.REACT_APP_UPDATE_INTERVAL) || 60000,
+  CHART: parseInt(process.env.REACT_APP_CHART_UPDATE_INTERVAL) || 300000,
+  ALERTS: parseInt(process.env.REACT_APP_ALERTS_UPDATE_INTERVAL) || 300000,
+  SERVER_STATUS: parseInt(process.env.REACT_APP_SERVER_STATUS_UPDATE_INTERVAL) || 30000
 }
