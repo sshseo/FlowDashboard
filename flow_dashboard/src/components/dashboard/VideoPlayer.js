@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { formatTime } from '../../utils/formatters'
 
 export default function VideoPlayer({ 
@@ -7,6 +7,16 @@ export default function VideoPlayer({
   realtimeData, 
   videoKey 
 }) {
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-slate-900">
       <video
@@ -46,11 +56,9 @@ export default function VideoPlayer({
         <div className="px-2 py-1 bg-black/60 text-white text-xs rounded">
           수위: {waterLevel.toFixed(1)}cm
         </div>
-        {realtimeData?.flow_time && (
-          <div className="px-2 py-1 bg-black/60 text-white text-xs rounded">
-            {formatTime(realtimeData.flow_time)}
-          </div>
-        )}
+        <div className="px-2 py-1 bg-black/60 text-white text-xs rounded">
+          {formatTime(currentTime)}
+        </div>
       </div>
     </div>
   )

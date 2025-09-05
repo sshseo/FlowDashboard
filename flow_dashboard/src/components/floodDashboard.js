@@ -18,6 +18,8 @@ import { LoadingSpinner } from './common/Loading'
 import SessionTimeoutModal from './common/SessionTimeoutModal'
 import KpiCard from './charts/KpiCard'
 import ChartCard from './charts/ChartCard'
+import NotificationSettings from './NotificationSettings'
+import SystemSettings from './SystemSettings'
 import Panel from './dashboard/Panel'
 import KakaoMap from './dashboard/KakaoMap'
 import VideoPlayer from './dashboard/VideoPlayer'
@@ -36,6 +38,26 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   // 세션 타임아웃 상태
   const [showTimeoutModal, setShowTimeoutModal] = useState(false)
   const [sessionRemainingTime, setSessionRemainingTime] = useState(0)
+
+  // 설정 모달 상태
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false)
+  const [showSystemSettings, setShowSystemSettings] = useState(false)
+
+  // 모바일 사이드바 열림/닫힘에 따른 배경 스크롤 제어
+  useEffect(() => {
+    if (sidebarOpen) {
+      // 사이드바가 열렸을 때 body 스크롤 비활성화
+      document.body.style.overflow = 'hidden'
+    } else {
+      // 사이드바가 닫혔을 때 body 스크롤 활성화
+      document.body.style.overflow = 'unset'
+    }
+
+    // 컴포넌트 언마운트 시 스크롤 복원
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [sidebarOpen])
 
   // 데이터 상태
   const [waterLevel, setWaterLevel] = useState([])
@@ -112,6 +134,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         if (temperatureData) {
           console.log('온도 갱신:', temperatureData)
           setCurrentTemperature(temperatureData)
+        } else {
+          // API 실패 시 온도 데이터를 null로 설정
+          console.log('온도 데이터 로드 실패 - 표시 없음')
+          setCurrentTemperature(null)
         }
       } catch (error) {
         console.error('온도 데이터 업데이트 실패:', error)
@@ -301,7 +327,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
 
       {/* 사이드바 */}
       <div className={`
-        fixed top-0 left-0 h-full w-72 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out
+        fixed top-0 left-0 h-full w-72 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:relative lg:shadow-none lg:border-r lg:flex-shrink-0
       `}>
@@ -314,7 +340,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
           </div>
         </div>
 
-        <div className="p-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* 위치 선택 */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">모니터링 위치</h3>
@@ -381,11 +407,17 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">알림 설정</h3>
             <div className="space-y-2">
-              <button className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg">
+              <button 
+                onClick={() => setShowNotificationSettings(true)}
+                className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg"
+              >
                 <Bell className="h-4 w-4" />
                 <span className="text-sm">알림 설정</span>
               </button>
-              <button className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg">
+              <button 
+                onClick={() => setShowSystemSettings(true)}
+                className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg"
+              >
                 <Settings className="h-4 w-4" />
                 <span className="text-sm">시스템 설정</span>
               </button>
@@ -509,9 +541,9 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
             />
             <KpiCard
               title="기온"
-              value={currentTemperature ? currentTemperature.temperature.toFixed(1) : "--"}
-              unit="°C"
-              subtitle={currentTemperature?.source === 'KMA_API' ? '현재 온도' : '예상 기온'}
+              value={currentTemperature ? currentTemperature.temperature.toFixed(1) : "-"}
+              unit={currentTemperature ? "°C" : ""}
+              subtitle={currentTemperature ? "현재 온도" : "데이터 없음"}
               icon={<Thermometer className="h-5 w-5" />}
               color="orange"
             />
@@ -678,6 +710,17 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         remainingSeconds={sessionRemainingTime}
         onExtend={handleSessionExtend}
         onLogout={handleSessionLogout}
+      />
+
+      {/* 설정 모달들 */}
+      <NotificationSettings
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+      />
+      
+      <SystemSettings
+        isOpen={showSystemSettings}
+        onClose={() => setShowSystemSettings(false)}
       />
     </div>
   )

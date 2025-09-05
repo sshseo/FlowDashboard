@@ -47,11 +47,14 @@ export const weatherService = {
     return { nx, ny };
   },
 
-  // 현재 날짜/시간 포맷 생성
-  getCurrentDateTime: () => {
+  // 현재 날짜/시간 포맷 생성 (데이터 가용성 고려)
+  getCurrentDateTime: (fallbackHours = 0) => {
     const now = new Date()
+    now.setHours(now.getHours() - fallbackHours)
+    
     const date = now.toISOString().slice(0, 10).replace(/-/g, '')
     const hour = String(now.getHours()).padStart(2, '0') + '00'
+    console.log(`기상청 API 요청 시간: ${date} ${hour} (${fallbackHours}시간 전)`)
     return { date, hour }
   },
 
@@ -60,85 +63,70 @@ export const weatherService = {
     try {
       if (!weatherService.API_KEY) {
         console.warn('기상청 API 키가 설정되지 않았습니다.')
-        return weatherService.getMockTemperature()
+        return null
       }
 
       const { nx, ny } = lat && lon ? weatherService.convertToGrid(lat, lon) : 
                         { nx: weatherService.DEFAULT_NX, ny: weatherService.DEFAULT_NY }
       
       console.log(`위경도 (${lat}, ${lon}) -> 격자좌표 (${nx}, ${ny})`)
-      const { date, hour } = weatherService.getCurrentDateTime()
 
-      const params = new URLSearchParams({
-        serviceKey: decodeURIComponent(weatherService.API_KEY),
-        pageNo: '1',
-        numOfRows: '1000',
-        dataType: 'JSON',
-        base_date: date,
-        base_time: hour,
-        nx: nx.toString(),
-        ny: ny.toString()
-      })
+      // 먼저 현재 시간으로 시도
+      for (let fallbackHours = 0; fallbackHours <= 2; fallbackHours++) {
+        const { date, hour } = weatherService.getCurrentDateTime(fallbackHours)
 
-      const response = await fetch(`${weatherService.API_BASE_URL}/getUltraSrtNcst?${params}`)
-      
-      if (!response.ok) {
-        throw new Error(`기상청 API 호출 실패: ${response.status}`)
-      }
+        const params = new URLSearchParams({
+          serviceKey: decodeURIComponent(weatherService.API_KEY),
+          pageNo: '1',
+          numOfRows: '1000',
+          dataType: 'JSON',
+          base_date: date,
+          base_time: hour,
+          nx: nx.toString(),
+          ny: ny.toString()
+        })
 
-      const data = await response.json()
-      
-      // T1H (기온) 데이터 추출
-      if (data.response?.body?.items?.item) {
-        const items = data.response.body.items.item
-        const tempItem = items.find(item => item.category === 'T1H')
+        const response = await fetch(`${weatherService.API_BASE_URL}/getUltraSrtNcst?${params}`)
         
-        if (tempItem) {
-          return {
-            temperature: parseFloat(tempItem.obsrValue),
-            timestamp: new Date(),
-            source: 'KMA_API'
+        if (!response.ok) {
+          console.warn(`기상청 API 호출 실패 (${fallbackHours}시간 전): ${response.status}`)
+          continue
+        }
+
+        const data = await response.json()
+        
+        // 응답 코드 확인
+        if (data.response?.header?.resultCode === '00') {
+          // 정상 응답 - T1H (기온) 데이터 추출
+          if (data.response?.body?.items?.item) {
+            const items = data.response.body.items.item
+            const tempItem = items.find(item => item.category === 'T1H')
+            
+            if (tempItem) {
+              console.log(`온도 데이터 찾음: ${tempItem.obsrValue}°C (${fallbackHours}시간 전 데이터)`)
+              return {
+                temperature: parseFloat(tempItem.obsrValue),
+                timestamp: new Date(),
+                source: 'KMA_API'
+              }
+            }
           }
+        } else if (data.response?.header?.resultCode === '03') {
+          // NO_DATA - 다음 시간대로 시도
+          console.warn(`데이터 없음 (${fallbackHours}시간 전) - 이전 시간대 시도`)
+          continue
         }
       }
       
-      // API 응답이 올바르지 않은 경우 목 데이터 반환
-      return weatherService.getMockTemperature()
+      console.warn('모든 시간대에서 온도 데이터를 찾을 수 없음')
+      return null
       
     } catch (error) {
       console.error('기상청 API 호출 실패:', error)
-      // API 호출 실패시 목 데이터 반환
-      return weatherService.getMockTemperature()
+      return null
     }
   },
 
-  // Mock 온도 데이터 (API 키가 없거나 실패시 사용)
-  getMockTemperature: () => {
-    // 계절에 따른 현실적인 온도 범위
-    const now = new Date()
-    const month = now.getMonth() + 1
-    
-    let baseTemp
-    if (month >= 12 || month <= 2) {
-      // 겨울 (-5 ~ 10도)
-      baseTemp = Math.random() * 15 - 5
-    } else if (month >= 3 && month <= 5) {
-      // 봄 (5 ~ 25도)
-      baseTemp = Math.random() * 20 + 5
-    } else if (month >= 6 && month <= 8) {
-      // 여름 (20 ~ 35도)
-      baseTemp = Math.random() * 15 + 20
-    } else {
-      // 가을 (5 ~ 25도)
-      baseTemp = Math.random() * 20 + 5
-    }
-    
-    return {
-      temperature: Math.round(baseTemp * 10) / 10, // 소수점 1자리
-      timestamp: new Date(),
-      source: 'MOCK_DATA'
-    }
-  },
 
   // API 키 설정
   setApiKey: (apiKey) => {
