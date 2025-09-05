@@ -24,7 +24,101 @@ import Panel from './dashboard/Panel'
 import KakaoMap from './dashboard/KakaoMap'
 import VideoPlayer from './dashboard/VideoPlayer'
 
+// 차트 컴포넌트 메모이제이션
+const ChartsSection = React.memo(({ waterLevel, flowVelocity, discharge }) => (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <ChartCard title="수위 변화 추이" color="blue">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={waterLevel} animationDuration={0}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="t" 
+            fontSize={10}
+            interval={0}
+            angle={-45}
+            textAnchor="end"
+            height={60}
+          />
+          <YAxis fontSize={12} />
+          <Tooltip
+            formatter={(value) => [`${value}cm`, '수위']}
+            labelFormatter={(label) => `시간: ${label}`}
+            animationDuration={0}
+          />
+          <Area
+            type="monotone"
+            dataKey="h"
+            stroke="#3B82F6"
+            fill="#DBEAFE"
+            strokeWidth={2}
+            animationDuration={0}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartCard>
 
+    <ChartCard title="유속 변화 추이" color="green">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={flowVelocity} animationDuration={0}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="t" 
+            fontSize={10}
+            interval={0}
+            angle={-45}
+            textAnchor="end"
+            height={60}
+          />
+          <YAxis fontSize={12} />
+          <Tooltip
+            formatter={(value) => [`${value}m/s`, '유속']}
+            animationDuration={0}
+          />
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke="#10B981"
+            strokeWidth={2}
+            dot={false}
+            animationDuration={0}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartCard>
+
+    <ChartCard title="유량 변화 추이" color="cyan">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={discharge} animationDuration={0}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="t" 
+            fontSize={10}
+            interval={0}
+            angle={-45}
+            textAnchor="end"
+            height={60}
+          />
+          <YAxis fontSize={12} />
+          <Tooltip
+            formatter={(value) => [`${value}m³/s`, '유량']}
+            animationDuration={0}
+          />
+          <Line
+            type="monotone"
+            dataKey="q"
+            stroke="#06B6D4"
+            strokeWidth={2}
+            dot={false}
+            animationDuration={0}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  </div>
+))
 
 export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }) {
   // 상태 관리
@@ -611,89 +705,11 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
           </div>
 
           {/* 차트 영역 */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <ChartCard title="수위 변화 추이" color="blue">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={waterLevel}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="t" 
-                    fontSize={10}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
-                  />
-                  <YAxis fontSize={12} />
-                  <Tooltip
-                    formatter={(value) => [`${value}cm`, '수위']}
-                    labelFormatter={(label) => `시간: ${label}`}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="h"
-                    stroke="#3B82F6"
-                    fill="#DBEAFE"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            <ChartCard title="유속 변화 추이" color="green">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={flowVelocity}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="t" 
-                    fontSize={10}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
-                  />
-                  <YAxis fontSize={12} />
-                  <Tooltip
-                    formatter={(value) => [`${value}m/s`, '유속']}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="v"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            <ChartCard title="유량 변화 추이" color="cyan">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={discharge}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="t" 
-                    fontSize={10}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
-                  />
-                  <YAxis fontSize={12} />
-                  <Tooltip
-                    formatter={(value) => [`${value}m³/s`, '유량']}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="q"
-                    stroke="#06B6D4"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </div>
+          <ChartsSection 
+            waterLevel={waterLevel}
+            flowVelocity={flowVelocity}
+            discharge={discharge}
+          />
         </main>
 
         {/* 푸터 */}
