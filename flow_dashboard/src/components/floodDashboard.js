@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
   Camera, AlertTriangle, Waves, Gauge, Clock,
   RefreshCw, Menu, X, Bell, Settings,
-  Droplets, Wind, Thermometer, LogOut, User
+  Droplets, Wind, Thermometer, LogOut, User, UserPlus
 } from 'lucide-react'
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area } from 'recharts'
 
@@ -20,6 +20,8 @@ import KpiCard from './charts/KpiCard'
 import ChartCard from './charts/ChartCard'
 import NotificationSettings from './NotificationSettings'
 import SystemSettings from './SystemSettings'
+import UserManagementModal from './UserManagementModal'
+import { authService } from '../services/authService'
 import Panel from './dashboard/Panel'
 import KakaoMap from './dashboard/KakaoMap'
 import VideoPlayer from './dashboard/VideoPlayer'
@@ -136,6 +138,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   // 설정 모달 상태
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   const [showSystemSettings, setShowSystemSettings] = useState(false)
+  const [showUserManagement, setShowUserManagement] = useState(false)
 
   // 모바일 사이드바 열림/닫힘에 따른 배경 스크롤 제어
   useEffect(() => {
@@ -161,7 +164,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   const [flowInfo, setFlowInfo] = useState(null)
   const [realtimeData, setRealtimeData] = useState(null)
   const [videoKey, setVideoKey] = useState(0)
-  const [currentTemperature, setCurrentTemperature] = useState(null)
+  const [currentTemperature, setCurrentTemperature] = useState({ 
+    temperature: null, 
+    loading: true 
+  })
   //const [wsConnected, setWsConnected] = useState(false)
 
   // 실시간 데이터 업데이트
@@ -227,14 +233,26 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         const temperatureData = await apiService.getCurrentTemperature(lat, lon)
         if (temperatureData) {
           console.log('온도 갱신:', temperatureData)
-          setCurrentTemperature(temperatureData)
+          setCurrentTemperature({ 
+            temperature: temperatureData.temperature,
+            timestamp: temperatureData.timestamp,
+            source: temperatureData.source,
+            loading: false
+          })
         } else {
           // API 실패 시 온도 데이터를 null로 설정
           console.log('온도 데이터 로드 실패 - 표시 없음')
-          setCurrentTemperature(null)
+          setCurrentTemperature({ 
+            temperature: null, 
+            loading: false 
+          })
         }
       } catch (error) {
         console.error('온도 데이터 업데이트 실패:', error)
+        setCurrentTemperature({ 
+          temperature: null, 
+          loading: false 
+        })
       }
     }
 
@@ -329,7 +347,12 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
             flowInfo.flow_longitude
           )
           if (temperatureData) {
-            setCurrentTemperature(temperatureData)
+            setCurrentTemperature({ 
+              temperature: temperatureData.temperature,
+              timestamp: temperatureData.timestamp,
+              source: temperatureData.source,
+              loading: false
+            })
           }
         } catch (error) {
           console.error('위치 변경시 온도 데이터 업데이트 실패:', error)
@@ -395,6 +418,19 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
     onLogout()
   }
 
+  // 회원 추가 처리
+  const handleAddUser = async (userData) => {
+    try {
+      await authService.createUser(userData)
+      alert('회원이 성공적으로 추가되었습니다.')
+    } catch (error) {
+      console.error('회원 추가 실패:', error)
+      throw error
+    }
+  }
+
+  // 관리자 권한 확인 (user_level이 0인 경우만 관리자)
+  const isAdmin = userInfo && userInfo.user_level === 0
 
   // KPI 계산
   const kpis = useMemo(() => 
@@ -553,6 +589,19 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               >
                 {isLoading ? <LoadingSpinner size="small" /> : <RefreshCw className="h-4 w-4" />}
               </button>
+
+              {/* 관리자 전용 회원 추가 버튼 */}
+              {isAdmin && (
+                <button
+                  onClick={() => setShowUserManagement(true)}
+                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                  title="회원 추가"
+                >
+                  <UserPlus className="h-3 w-3" />
+                  <span className="hidden sm:inline">회원 추가</span>
+                </button>
+              )}
+
               <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                 riskLevel.level === 'critical' ? 'text-white bg-red-500' :
                 riskLevel.level === 'warning' ? 'text-white bg-yellow-500' :
@@ -635,9 +684,15 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
             />
             <KpiCard
               title="기온"
-              value={currentTemperature ? currentTemperature.temperature.toFixed(1) : "-"}
-              unit={currentTemperature ? "°C" : ""}
-              subtitle={currentTemperature ? "현재 온도" : "데이터 없음"}
+              value={
+                currentTemperature.loading ? "..." : 
+                (currentTemperature.temperature !== null ? currentTemperature.temperature.toFixed(1) : "-")
+              }
+              unit={currentTemperature.temperature !== null ? "°C" : ""}
+              subtitle={
+                currentTemperature.loading ? "로딩 중..." : 
+                (currentTemperature.temperature !== null ? "현재 온도" : "데이터 없음")
+              }
               icon={<Thermometer className="h-5 w-5" />}
               color="orange"
             />
@@ -738,6 +793,15 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         isOpen={showSystemSettings}
         onClose={() => setShowSystemSettings(false)}
       />
+
+      {/* 회원 관리 모달 (관리자만) */}
+      {isAdmin && (
+        <UserManagementModal
+          isOpen={showUserManagement}
+          onClose={() => setShowUserManagement(false)}
+          onAddUser={handleAddUser}
+        />
+      )}
     </div>
   )
 }

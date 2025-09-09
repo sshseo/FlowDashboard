@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from app.models.auth import LoginRequest, LoginResponse
+from app.models.auth import LoginRequest, LoginResponse, CreateUserRequest, CreateUserResponse
 from app.services.auth_service import AuthService
 from app.dependencies import get_current_user
 
@@ -21,6 +21,12 @@ async def login(login_data: LoginRequest, request: Request):
 
 
 @router.get("/verify")
-async def verify_token(current_user: str = Depends(get_current_user)):
+async def verify_token(current_user: dict = Depends(get_current_user)):
     """토큰 검증"""
-    return {"valid": True, "user_id": current_user}
+    return {"valid": True, "user": current_user}
+
+
+@router.post("/create-user", response_model=CreateUserResponse)
+async def create_user(user_data: CreateUserRequest, current_user: dict = Depends(get_current_user)):
+    """새 사용자 생성 (관리자만 가능)"""
+    return await auth_service.create_user(user_data, current_user["user_level"])

@@ -19,3 +19,17 @@ class UserInfo(BaseModel):
     user_id: str
     user_name: str
     user_level: int
+
+
+class CreateUserRequest(BaseModel):
+    user_id: str
+    password: str
+    user_name: str
+    user_level: int
+    phone: str
+
+
+class CreateUserResponse(BaseModel):
+    success: bool
+    message: str
+    user_uid: Optional[int] = None

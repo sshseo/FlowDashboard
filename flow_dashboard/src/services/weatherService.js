@@ -8,6 +8,11 @@ export const weatherService = {
   DEFAULT_NX: parseInt(process.env.REACT_APP_DEFAULT_NX) || 60,
   DEFAULT_NY: parseInt(process.env.REACT_APP_DEFAULT_NY) || 127,
 
+  // 캐시 및 중복 요청 방지
+  _cache: new Map(),
+  _pendingRequests: new Map(),
+  _cacheTimeout: 5 * 60 * 1000, // 5분 캐시
+
   // 격자 좌표 변환 (위경도 -> 격자좌표) - 기상청 공식
   convertToGrid: (lat, lon) => {
     const RE = 6371.00877; // 지구 반경(km)
@@ -69,8 +74,57 @@ export const weatherService = {
       const { nx, ny } = lat && lon ? weatherService.convertToGrid(lat, lon) : 
                         { nx: weatherService.DEFAULT_NX, ny: weatherService.DEFAULT_NY }
       
-      console.log(`위경도 (${lat}, ${lon}) -> 격자좌표 (${nx}, ${ny})`)
+      // 캐시 키 생성
+      const cacheKey = `weather_${nx}_${ny}`
+      const now = Date.now()
+      
+      // 캐시된 데이터 확인
+      if (weatherService._cache.has(cacheKey)) {
+        const cached = weatherService._cache.get(cacheKey)
+        if (now - cached.timestamp < weatherService._cacheTimeout) {
+          console.log(`🌡️ 캐시된 온도 사용: ${cached.data.temperature}°C (격자: ${nx}, ${ny})`)
+          return cached.data
+        }
+        weatherService._cache.delete(cacheKey)
+      }
 
+      // 진행 중인 요청 확인 (중복 요청 방지)
+      if (weatherService._pendingRequests.has(cacheKey)) {
+        console.log(`🌡️ 대기 중인 요청 사용 (격자: ${nx}, ${ny})`)
+        return await weatherService._pendingRequests.get(cacheKey)
+      }
+
+      console.log(`🌡️ 새로운 온도 요청: 위경도 (${lat}, ${lon}) -> 격자좌표 (${nx}, ${ny})`)
+
+      // 새로운 요청 생성
+      const requestPromise = weatherService._fetchWeatherData(nx, ny)
+      weatherService._pendingRequests.set(cacheKey, requestPromise)
+
+      try {
+        const result = await requestPromise
+        
+        // 성공한 경우 캐시에 저장
+        if (result) {
+          weatherService._cache.set(cacheKey, {
+            data: result,
+            timestamp: now
+          })
+        }
+        
+        return result
+      } finally {
+        weatherService._pendingRequests.delete(cacheKey)
+      }
+
+    } catch (error) {
+      console.error('기상청 API 호출 실패:', error)
+      return null
+    }
+  },
+
+  // 실제 API 호출 로직 분리
+  _fetchWeatherData: async (nx, ny) => {
+    try {
       // 먼저 현재 시간으로 시도
       for (let fallbackHours = 0; fallbackHours <= 2; fallbackHours++) {
         const { date, hour } = weatherService.getCurrentDateTime(fallbackHours)

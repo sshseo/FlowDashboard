@@ -62,5 +62,31 @@ export const authService = {
   // 토큰 가져오기
   getToken: () => {
     return localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+  },
+
+  // 회원 추가 (관리자만)
+  createUser: async (userData) => {
+    const token = authService.getToken()
+    
+    if (!token) {
+      throw new Error('로그인이 필요합니다.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/create-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(userData)
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.detail || '회원 추가에 실패했습니다.')
+    }
+
+    return data
   }
 }
