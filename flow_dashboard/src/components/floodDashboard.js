@@ -163,6 +163,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   const [alerts, setAlerts] = useState([])
   const [flowInfo, setFlowInfo] = useState(null)
   const [realtimeData, setRealtimeData] = useState(null)
+  const [connectionStatus, setConnectionStatus] = useState('connecting')
   const [videoKey, setVideoKey] = useState(0)
   const [currentTemperature, setCurrentTemperature] = useState({ 
     temperature: null, 
@@ -176,20 +177,26 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       try {
         console.log('API 호출 location:', selectedLocation)
         const realtimeResponse = await apiService.getRealtimeData(selectedLocation, flowUid)
-        if (realtimeResponse && realtimeResponse.status === 'success') {
+        if (realtimeResponse) {
           setRealtimeData(realtimeResponse)
           setLastUpdate(new Date())
           setIsOnline(true)
+          
+          // 연결 상태 업데이트
+          if (realtimeResponse.connection_status) {
+            setConnectionStatus(realtimeResponse.connection_status)
+          }
         }
       } catch (error) {
         console.error('실시간 데이터 업데이트 실패:', error)
         setIsOnline(false)
+        setConnectionStatus('disconnected')
       }
     }
 
     const updateChartData = async () => {
       try {
-        const timeseriesResponse = await apiService.getTimeseriesData(selectedLocation, '1h', flowUid)
+        const timeseriesResponse = await apiService.getTimeseriesData(selectedLocation, '7d', flowUid)
         if (timeseriesResponse && timeseriesResponse.status === 'success') {
           setWaterLevel(timeseriesResponse.waterLevel || [])
           setFlowVelocity(timeseriesResponse.flowVelocity || [])
@@ -665,6 +672,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               icon={<Gauge className="h-5 w-5" />}
               trend={kpis.trend}
               color="blue"
+              isConnecting={connectionStatus === 'connecting'}
             />
             <KpiCard
               title="유속"
@@ -673,6 +681,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               subtitle="광학 유속계"
               icon={<Wind className="h-5 w-5" />}
               color="green"
+              isConnecting={connectionStatus === 'connecting'}
             />
             <KpiCard
               title="유량"
@@ -681,6 +690,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               subtitle="Q = A × v"
               icon={<Droplets className="h-5 w-5" />}
               color="cyan"
+              isConnecting={connectionStatus === 'connecting'}
             />
             <KpiCard
               title="기온"

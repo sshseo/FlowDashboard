@@ -1,5 +1,5 @@
 import React from 'react'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, Loader2 } from 'lucide-react'
 import { formatNumber } from '../../utils/formatters'
 
 const colorClasses = {
@@ -16,7 +16,8 @@ export default function KpiCard({
   subtitle, 
   icon, 
   trend, 
-  color = "blue" 
+  color = "blue",
+  isConnecting = false 
 }) {
   return (
     <div className={`bg-gradient-to-br ${colorClasses[color]} border rounded-xl p-4 shadow-sm`}>
@@ -34,11 +35,20 @@ export default function KpiCard({
           </div>
         )}
       </div>
-      <div className="flex items-baseline gap-1">
-        <div className="text-2xl font-bold">{formatNumber(value)}</div>
-        <div className="text-sm text-gray-500">{unit}</div>
-      </div>
-      {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
+      {isConnecting ? (
+        <div className="flex items-center justify-center gap-2 py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+          <div className="text-sm text-gray-500">실시간 데이터 연결중</div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-1">
+            <div className="text-2xl font-bold">{formatNumber(value)}</div>
+            <div className="text-sm text-gray-500">{unit}</div>
+          </div>
+          {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
+        </>
+      )}
     </div>
   )
 }

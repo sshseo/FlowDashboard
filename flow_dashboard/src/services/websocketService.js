@@ -8,6 +8,7 @@ class WebSocketService {
     this.callbacks = {
       alert_update: [],
       system_status: [],
+      realtime_kpi_update: [],
       connection: []
     };
   }
@@ -79,6 +80,9 @@ class WebSocketService {
       case 'system_status':
         this.notifyCallbacks('system_status', message.data);
         break;
+      case 'realtime_kpi_update':
+        this.notifyCallbacks('realtime_kpi_update', message.data);
+        break;
       default:
         console.log('알 수 없는 메시지 타입:', type);
     }
@@ -124,6 +128,10 @@ class WebSocketService {
 
   onConnection(callback) {
     this.callbacks.connection.push(callback);
+  }
+
+  onRealtimeKpiUpdate(callback) {
+    this.callbacks.realtime_kpi_update.push(callback);
   }
 
   // 콜백 제거

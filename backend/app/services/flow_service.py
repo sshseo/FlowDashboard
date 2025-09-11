@@ -2,6 +2,8 @@
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from app.database import get_db_pool
+from app.services.ai_data_buffer import ai_data_buffer
+from app.services.ai_data_service import ai_data_service
 from fastapi import HTTPException
 
 class FlowService:
@@ -9,7 +11,43 @@ class FlowService:
         self.flow_uid = flow_uid  # 기본값 1, 나중에 동적으로 변경 가능
 
     async def get_latest_flow_data(self, location_id: str = None) -> Dict:
-        """최신 하천 데이터 조회"""
+        """최신 하천 데이터 조회 (AI 실시간 데이터 우선)"""
+        
+        # 0. AI 서버 연결 상태 확인
+        try:
+            from app.services.ai_client import ai_client
+            ai_connected = ai_client.is_connected()
+        except Exception:
+            ai_connected = False
+        
+        # 1. AI 실시간 데이터 확인
+        ai_latest_data = ai_data_buffer.get_latest_data_for_kpi()
+        if ai_latest_data:
+            return {
+                "flow_rate": float(ai_latest_data['flow_rate']) / 10,  # DB값을 10으로 나누어 m/s로 변환
+                "flow_flux": float(ai_latest_data['flow_flux']),  # 유량 (m³/s)
+                "flow_waterlevel": float(ai_latest_data['flow_waterlevel']),  # 수위 (cm)
+                "flow_time": ai_latest_data['flow_time'],
+                "status": "success",
+                "data_source": "ai_realtime",
+                "connection_status": "connected",
+                "message": "실시간 데이터 연결됨"
+            }
+        
+        # 1.1. AI 서버가 연결 중이지만 데이터가 아직 없는 경우
+        if ai_connected or ai_data_service.is_running:
+            return {
+                "flow_rate": 0.0,
+                "flow_flux": 0.0,
+                "flow_waterlevel": 0.0,
+                "flow_time": datetime.now().isoformat(),
+                "status": "connecting",
+                "data_source": "ai_connecting",
+                "connection_status": "connecting",
+                "message": "실시간 데이터 연결중"
+            }
+        
+        # 2. AI 데이터가 없으면 DB에서 조회 (폴백)
         db_pool = get_db_pool()
 
         async with db_pool.acquire() as conn:
@@ -35,7 +73,10 @@ class FlowService:
                         "flow_flux": 0.0,
                         "flow_waterlevel": 0.0,
                         "flow_time": datetime.now().isoformat(),
-                        "status": "no_data"
+                        "status": "no_data",
+                        "data_source": "database_fallback",
+                        "connection_status": "disconnected",
+                        "message": "연결 대기 중"
                     }
 
                 return {
@@ -43,7 +84,10 @@ class FlowService:
                     "flow_flux": float(row['flow_flux']),  # 유량 (m³/s)
                     "flow_waterlevel": float(row['flow_waterlevel']),  # 수위 (cm)
                     "flow_time": row['flow_time'].isoformat(),
-                    "status": "success"
+                    "status": "success",
+                    "data_source": "database",
+                    "connection_status": "disconnected",
+                    "message": "과거 데이터 (AI 서버 연결 안됨)"
                 }
 
             except Exception as e:
@@ -59,7 +103,8 @@ class FlowService:
             "6h": timedelta(hours=6),
             "12h": timedelta(hours=12),
             "24h": timedelta(hours=24),
-            "7d": timedelta(days=7)
+            "7d": timedelta(days=7),
+            "": timedelta(days=7)
         }
 
         delta = time_delta_map.get(time_range, timedelta(hours=1))
@@ -73,9 +118,18 @@ class FlowService:
                     flow_flux,
                     flow_waterlevel,
                     flow_time
-                FROM flow_detail_info 
-                WHERE flow_uid = $1 
-                    AND flow_time >= $2
+                FROM (
+                    SELECT 
+                        flow_rate,
+                        flow_flux,
+                        flow_waterlevel,
+                        flow_time
+                    FROM flow_detail_info 
+                    WHERE flow_uid = $1 
+                        AND flow_time >= $2
+                    ORDER BY flow_time DESC
+                    LIMIT 10
+                ) subquery
                 ORDER BY flow_time ASC
                 """
 

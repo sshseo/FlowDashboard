@@ -34,7 +34,7 @@ export const apiService = {
   },
 
   // 시계열 데이터 가져오기
-  getTimeseriesData: async (locationId, timeRange = '1h', flowUid = 1) => {
+  getTimeseriesData: async (locationId, timeRange = '7d', flowUid = 1) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/timeseries/${locationId}?range=${timeRange}&flow_uid=${flowUid}`, {
         headers: apiService.getAuthHeaders()

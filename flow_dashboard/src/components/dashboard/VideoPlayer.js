@@ -31,10 +31,13 @@ export default function VideoPlayer({
         <source src={videoPath?.replace('.mp4', '.webm')} type="video/webm" />
       </video>
 
-      {/* 수위 라인 표시 */}
+      {/* 수위 라인 표시 - 박스 내부 기준 */}
       <div
         className="absolute left-0 right-0 border-t-2 border-blue-400 z-10"
-        style={{ top: `${60 - (waterLevel / 20) * 30}%` }}
+        style={{ 
+          top: `${60 - Math.min(Math.max(waterLevel, 0), 50) / 50 * 40}%`,
+          boxShadow: '0 0 4px rgba(59, 130, 246, 0.5)'
+        }}
       />
 
       {/* 수위 감지 박스 */}
