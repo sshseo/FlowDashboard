@@ -117,3 +117,83 @@ class AuthService:
                     status_code=500,
                     detail="회원 추가 중 오류가 발생했습니다."
                 )
+    
+    async def change_password(self, user_uid: int, current_password: str, new_password: str):
+        """비밀번호 변경"""
+        db_pool = get_db_pool()
+        
+        async with db_pool.acquire() as conn:
+            # 현재 사용자 정보 조회
+            user_row = await conn.fetchrow(
+                "SELECT user_id, user_pwd FROM users WHERE user_uid = $1",
+                user_uid
+            )
+            
+            if not user_row:
+                raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+            
+            # 기존 비밀번호 확인
+            if not verify_password(current_password, user_row['user_pwd']):
+                raise HTTPException(status_code=400, detail="기존 비밀번호가 일치하지 않습니다.")
+            
+            # 새 비밀번호 유효성 검사
+            password_validation = self._validate_password(new_password)
+            if not password_validation["valid"]:
+                raise HTTPException(status_code=400, detail=password_validation["message"])
+            
+            # 새 비밀번호 해시화
+            hashed_new_password = hash_password(new_password)
+            
+            try:
+                # 비밀번호 업데이트
+                await conn.execute(
+                    "UPDATE users SET user_pwd = $1 WHERE user_uid = $2",
+                    hashed_new_password, user_uid
+                )
+                
+                # 감사 로그 기록
+                await AuditLogger.log_password_change(
+                    user_id=user_row['user_id'],
+                    ip_address="127.0.0.1"  # 실제로는 클라이언트 IP를 받아와야 함
+                )
+                
+                return {
+                    "message": "비밀번호가 성공적으로 변경되었습니다.",
+                    "success": True
+                }
+                
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail="비밀번호 변경 중 오류가 발생했습니다."
+                )
+    
+    def _validate_password(self, password: str) -> dict:
+        """비밀번호 보안 정책 검증"""
+        import re
+        
+        errors = []
+        
+        # 길이 체크 (최소 8자)
+        if len(password) < 8:
+            errors.append("최소 8자 이상")
+        
+        # 소문자 포함 체크  
+        if not re.search(r'[a-z]', password):
+            errors.append("소문자 1개 이상")
+        
+        # 숫자 포함 체크
+        if not re.search(r'\d', password):
+            errors.append("숫자 1개 이상")
+        
+        # 특수문자 포함 체크
+        if not re.search(r'[!@#$%^&*(),.?\":{}|<>]', password):
+            errors.append("특수문자 1개 이상(!@#$%^&*(),.?\":{}|<>)")
+        
+        if errors:
+            return {
+                "valid": False,
+                "message": f"비밀번호는 다음 조건을 만족해야 합니다: {', '.join(errors)}"
+            }
+        
+        return {"valid": True, "message": "유효한 비밀번호입니다."}

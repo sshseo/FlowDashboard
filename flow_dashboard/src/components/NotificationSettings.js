@@ -4,7 +4,7 @@ import { Bell, X, AlertTriangle } from 'lucide-react';
 const NotificationSettings = ({ isOpen, onClose }) => {
   const [settings, setSettings] = useState({
     notificationsEnabled: true,
-    warningLevel: 70,
+    warningLevel: 5,
     notificationMethod: 'browser'
   });
 
@@ -74,7 +74,7 @@ const NotificationSettings = ({ isOpen, onClose }) => {
               <input
                 type="range"
                 min="0"
-                max="50"
+                max="15"
                 value={settings.warningLevel}
                 onChange={(e) => handleChange('warningLevel', parseInt(e.target.value))}
                 className="flex-1"

@@ -381,11 +381,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       () => {
         console.log('세션 타임아웃 - 자동 로그아웃')
         setShowTimeoutModal(false)
-        if (window.confirm('세션이 만료되어 자동으로 로그아웃됩니다.')) {
-          onLogout()
-        } else {
-          onLogout()
-        }
+        onLogout()
       },
       // 경고 콜백 (5분 전 알림)
       () => {
