@@ -39,7 +39,24 @@ export const RISK_LEVELS = {
   CRITICAL: { level: 'critical', label: '위험', color: 'text-red-500' }
 }
 
-// 수위 임계값
+// 수위 임계값 (동적으로 로컬 저장소에서 로드)
+export const getWaterLevelThresholds = () => {
+  const savedSettings = localStorage.getItem('notificationSettings');
+  if (savedSettings) {
+    const settings = JSON.parse(savedSettings);
+    return {
+      WARNING: settings.warningLevel || 10,  // 주의 수위
+      CRITICAL: settings.dangerLevel || 15   // 위험 수위
+    };
+  }
+  // 기본값
+  return {
+    WARNING: 10,
+    CRITICAL: 15
+  };
+};
+
+// 기본 수위 임계값 (백업용)
 export const WATER_LEVEL_THRESHOLDS = {
   WARNING: 10,
   CRITICAL: 15

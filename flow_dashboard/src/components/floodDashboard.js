@@ -817,6 +817,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       <NotificationSettings
         isOpen={showNotificationSettings}
         onClose={() => setShowNotificationSettings(false)}
+        userInfo={userInfo}
       />
       
       <SystemSettings
