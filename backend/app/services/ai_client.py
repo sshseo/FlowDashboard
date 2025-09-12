@@ -17,7 +17,7 @@ MSG = {
 }
 
 class AITcpClient:
-    def __init__(self, host="172.30.1.34", port=50000):
+    def __init__(self, host="172.30.1.62", port=50000):
         self.host = host
         self.port = port
         self.reader: Optional[asyncio.StreamReader] = None

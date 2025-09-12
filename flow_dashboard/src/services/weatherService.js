@@ -181,7 +181,6 @@ export const weatherService = {
     }
   },
 
-
   // API 키 설정
   setApiKey: (apiKey) => {
     weatherService.API_KEY = apiKey

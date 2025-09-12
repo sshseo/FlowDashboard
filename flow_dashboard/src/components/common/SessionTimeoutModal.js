@@ -7,16 +7,30 @@ export default function SessionTimeoutModal({
   onExtend, 
   onLogout 
 }) {
-  const [countdown, setCountdown] = useState(remainingSeconds)
+  const [countdown, setCountdown] = useState(0)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      setIsInitialized(false)
+      return
+    }
 
-    setCountdown(remainingSeconds)
+    // 모달이 처음 열릴 때만 초기값 설정
+    if (!isInitialized) {
+      setCountdown(remainingSeconds)
+      setIsInitialized(true)
+      console.log(`세션 만료 경고: ${remainingSeconds}초로 초기화`)
+    }
+  }, [isOpen, remainingSeconds, isInitialized])
+
+  useEffect(() => {
+    if (!isOpen || !isInitialized) return
     
     const interval = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) {
+        console.log(`카운트다운: ${prev}초`)
+        if (prev <= 0) {
           clearInterval(interval)
           onLogout()
           return 0
@@ -26,7 +40,8 @@ export default function SessionTimeoutModal({
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isOpen, remainingSeconds, onLogout])
+  }, [isOpen, isInitialized])
+  
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60)

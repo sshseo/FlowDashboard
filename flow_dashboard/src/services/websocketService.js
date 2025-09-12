@@ -13,17 +13,46 @@ class WebSocketService {
     };
   }
 
-  connect() {
+  async connect() {
+    // 기존 연결이 있다면 정리
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
+      this.ws.close();
+    }
+
     const wsUrl = process.env.REACT_APP_API_URL 
       ? process.env.REACT_APP_API_URL.replace('http', 'ws') + '/api/ws'
       : 'ws://localhost:8001/api/ws';
 
+    console.log(`WebSocket 연결 시도: ${wsUrl}`);
+
     try {
+      // 서버 상태 먼저 확인
+      const isServerHealthy = await this.checkServerHealth();
+      if (!isServerHealthy) {
+        console.warn('서버가 준비되지 않음 - WebSocket 연결 지연');
+        setTimeout(() => this.connect(), 2000);
+        return;
+      }
+
       this.ws = new WebSocket(wsUrl);
       this.setupEventListeners();
     } catch (error) {
       console.error('WebSocket 연결 실패:', error);
       this.scheduleReconnect();
+    }
+  }
+
+  async checkServerHealth() {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8001';
+      const response = await fetch(`${baseUrl}/api/health`, {
+        method: 'GET',
+        timeout: 3000
+      });
+      return response.ok;
+    } catch (error) {
+      console.log('서버 상태 확인 실패:', error.message);
+      return false;
     }
   }
 
@@ -160,11 +189,25 @@ class WebSocketService {
 
   // 연결 종료
   disconnect() {
+    console.log('WebSocket 연결 종료 요청');
+    this.stopPing();
+    
     if (this.ws) {
-      this.stopPing();
-      this.ws.close();
+      // 이벤트 리스너 정리
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onclose = null;
+      this.ws.onerror = null;
+      
+      // 연결 상태 확인 후 종료
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close(1000, 'Client disconnect');
+      }
       this.ws = null;
     }
+    
+    // 재연결 시도 초기화
+    this.reconnectAttempts = 0;
   }
 }
 

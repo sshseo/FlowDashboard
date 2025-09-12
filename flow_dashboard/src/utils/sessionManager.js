@@ -9,6 +9,7 @@ class SessionManager {
     this.onTimeoutCallback = null
     this.onWarningCallback = null
     this.isActive = false
+    this.warningShown = false
     
     // 활동 감지 이벤트들
     this.activityEvents = [
@@ -28,6 +29,7 @@ class SessionManager {
     this.onTimeoutCallback = onTimeout
     this.onWarningCallback = onWarning
     this.isActive = true
+    this.warningShown = false
     
     // 활동 감지 이벤트 등록
     this.activityEvents.forEach(event => {
@@ -114,13 +116,16 @@ class SessionManager {
       clearTimeout(this.warningTimeoutId)
     }
     
-    // 경고 타이머 설정 (25분 후)
-    this.warningTimeoutId = setTimeout(() => {
-      if (this.isActive && this.onWarningCallback) {
-        console.log('세션 타임아웃 경고 (5분 남음)')
-        this.onWarningCallback()
-      }
-    }, this.sessionTimeout - this.warningTime)
+    // 경고 타이머 설정 (1분 후) - 경고가 이미 표시되지 않은 경우에만
+    if (!this.warningShown) {
+      this.warningTimeoutId = setTimeout(() => {
+        if (this.isActive && this.onWarningCallback && !this.warningShown) {
+          console.log('세션 타임아웃 경고 (5분 남음)')
+          this.warningShown = true
+          this.onWarningCallback()
+        }
+      }, this.sessionTimeout - this.warningTime)
+    }
     
     // 타임아웃 타이머 설정 (30분 후)
     this.timeoutId = setTimeout(() => {
@@ -132,6 +137,17 @@ class SessionManager {
   }
 
   /**
+   * 세션 타임아웃 설정
+   * @param {number} sessionTimeout - 세션 타임아웃 (밀리초)
+   * @param {number} warningTime - 경고 시간 (밀리초)
+   */
+  setSessionTimeout(sessionTimeout, warningTime) {
+    this.sessionTimeout = sessionTimeout
+    this.warningTime = warningTime
+    console.log(`세션 타임아웃 설정: ${sessionTimeout/1000/60}분, 경고: ${warningTime/1000/60}분 전`)
+  }
+
+  /**
    * 세션 연장
    */
   extend() {
@@ -139,6 +155,7 @@ class SessionManager {
     
     console.log('세션 연장됨')
     this.lastActivity = Date.now()
+    this.warningShown = false // 세션 연장 시 경고 상태 초기화
     this.resetTimer()
   }
 
