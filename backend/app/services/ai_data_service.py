@@ -84,13 +84,18 @@ class AIDataService:
             logger.error(f"AI 데이터 처리 실패: {e}")
     
     async def _broadcast_realtime_data(self, kpi_data: Dict):
-        """실시간 KPI 데이터 WebSocket 브로드캐스트"""
+        """실시간 KPI 데이터 WebSocket 브로드캐스트 및 알림 체크"""
         try:
+            water_level_cm = kpi_data['flow_waterlevel']  # cm
+            
+            # 수위 임계값 체크 및 알림 생성
+            await self._check_water_level_alerts(water_level_cm)
+            
             # WebSocket 메시지 형식
             message = {
                 'type': 'realtime_kpi_update',
                 'data': {
-                    'water_level': kpi_data['flow_waterlevel'],  # cm
+                    'water_level': water_level_cm,
                     'flow_velocity': kpi_data['flow_rate'] / 10,  # m/s
                     'discharge': kpi_data['flow_flux'],  # m³/s
                     'timestamp': kpi_data['flow_time'],
@@ -104,6 +109,139 @@ class AIDataService:
             
         except Exception as e:
             logger.error(f"실시간 데이터 브로드캐스트 실패: {e}")
+    
+    async def _check_water_level_alerts(self, water_level_cm: float):
+        """스마트 수위 알림 시스템 - 연속 감지 + 쿨다운 + 급변 감지"""
+        try:
+            from app.services.flow_service import FlowService
+            from datetime import datetime, timedelta
+            
+            # 임계값 설정
+            WARNING_LEVEL = 10  # cm - 주의 수위
+            DANGER_LEVEL = 15   # cm - 위험 수위
+            RAPID_CHANGE_THRESHOLD = 5.0  # cm - 급변 감지 임계값
+            
+            # 알림 시스템 상태 초기화
+            if not hasattr(self, '_alert_system_state'):
+                self._alert_system_state = {
+                    'last_alert_level': 'safe',
+                    'last_alert_time': {},  # 레벨별 마지막 알림 시간
+                    'water_level_history': [],  # 급변 감지용 이력
+                    # 연속 감지용 카운터 (임시 서버용으로 주석 처리)
+                    # 'warning_consecutive_count': 0,  # 주의 수위 연속 카운트
+                    # 'danger_consecutive_count': 0,   # 위험 수위 연속 카운트
+                }
+            
+            state = self._alert_system_state
+            now = datetime.now()
+            
+            # 1. 수위 이력 업데이트 (급변 감지용 - 1분간 보관)
+            state['water_level_history'].append({
+                'level': water_level_cm,
+                'timestamp': now
+            })
+            # 1분 이상 된 데이터 제거
+            state['water_level_history'] = [
+                h for h in state['water_level_history'] 
+                if now - h['timestamp'] <= timedelta(minutes=1)
+            ]
+            
+            # 2. 현재 수위 레벨 판단
+            current_level = 'safe'
+            if water_level_cm > DANGER_LEVEL:
+                current_level = 'danger'
+            elif water_level_cm > WARNING_LEVEL:
+                current_level = 'warning'
+            
+            # 3. 급변 감지 체크 (1분내 5cm 이상 상승)
+            rapid_change_detected = False
+            if len(state['water_level_history']) >= 2:
+                oldest_level = min(h['level'] for h in state['water_level_history'])
+                level_increase = water_level_cm - oldest_level
+                if level_increase >= RAPID_CHANGE_THRESHOLD:
+                    rapid_change_detected = True
+                    logger.warning(f"급변 감지! 1분내 {level_increase:.1f}cm 상승: {oldest_level:.1f}cm → {water_level_cm:.1f}cm")
+            
+            # 4. 쿨다운 체크 (같은 레벨 알림은 5분 간격)
+            cooldown_time = timedelta(minutes=5)
+            can_send_alert = True
+            if current_level in state['last_alert_time']:
+                time_since_last = now - state['last_alert_time'][current_level]
+                if time_since_last < cooldown_time:
+                    can_send_alert = False
+                    logger.debug(f"쿨다운 중: {current_level} 알림 {time_since_last.total_seconds():.0f}초 전 발송됨")
+            
+            # 5. 연속 감지 체크 (임시 서버용으로 주석 처리)
+            # TODO: 실제 AI 서버 연결 시 활성화
+            """
+            연속 감지 로직 (주석 처리됨):
+            - 주의 수위: 10초 연속 초과 시 알림
+            - 위험 수위: 5초 연속 초과 시 알림
+            
+            if current_level == 'warning':
+                state['warning_consecutive_count'] += 1
+                state['danger_consecutive_count'] = 0
+                consecutive_threshold_met = state['warning_consecutive_count'] >= 10  # 10초
+            elif current_level == 'danger':
+                state['danger_consecutive_count'] += 1
+                state['warning_consecutive_count'] = 0
+                consecutive_threshold_met = state['danger_consecutive_count'] >= 5   # 5초
+            else:
+                state['warning_consecutive_count'] = 0
+                state['danger_consecutive_count'] = 0
+                consecutive_threshold_met = False
+            """
+            
+            # 6. 알림 발송 조건 판단
+            should_send_alert = False
+            alert_message = None
+            alert_type = None
+            """
+            # 급변 감지 시 즉시 알림 (쿨다운 무시)
+            if rapid_change_detected:
+                should_send_alert = True
+                alert_message = f"🚨 급격한 수위 상승! 1분내 {level_increase:.1f}cm 증가: {water_level_cm:.1f}cm"
+                alert_type = "긴급"
+                logger.info(f"급변 감지 알림 발송: {alert_message}")
+            """
+            
+            # 레벨 변경 + 쿨다운 통과 시 알림
+            #elif state['last_alert_level'] != current_level and can_send_alert:
+            if state['last_alert_level'] != current_level and can_send_alert:
+                # 연속 감지 조건 (임시 서버에서는 항상 True)
+                consecutive_threshold_met = True  # 실제 서버에서는 위 주석된 로직 사용
+                
+                if consecutive_threshold_met:
+                    should_send_alert = True
+                    
+                    if current_level == 'danger':
+                        alert_message = f"위험 수위 달성! 현재 수위: {water_level_cm:.1f}cm (기준: {DANGER_LEVEL}cm)"
+                        alert_type = "긴급"
+                    elif current_level == 'warning':
+                        alert_message = f"주의 수위 달성! 현재 수위: {water_level_cm:.1f}cm (기준: {WARNING_LEVEL}cm)"
+                        alert_type = "주의"
+                    elif current_level == 'safe':
+                        alert_message = f"수위 정상화됨! 현재 수위: {water_level_cm:.1f}cm"
+                        alert_type = "정상"
+            
+            # 7. 알림 발송
+            if should_send_alert and alert_message:
+                flow_service = FlowService(flow_uid=1)
+                await flow_service.add_alert(alert_message, alert_type)
+                
+                # 상태 업데이트
+                state['last_alert_level'] = current_level
+                state['last_alert_time'][current_level] = now
+                
+                logger.info(f"스마트 알림 발송: {alert_type} - {alert_message}")
+            
+            # 8. 디버그 로그 (10초마다)
+            if int(now.timestamp()) % 10 == 0:
+                logger.debug(f"수위 알림 상태: 현재={water_level_cm:.1f}cm, 레벨={current_level}, "
+                           f"이력={len(state['water_level_history'])}개, 쿨다운={not can_send_alert}")
+                
+        except Exception as e:
+            logger.error(f"스마트 수위 알림 체크 실패: {e}")
     
     async def receive_ai_data_from_server(self, ai_data: Dict):
         """실제 AI 서버로부터 데이터 수신 시 호출되는 함수"""

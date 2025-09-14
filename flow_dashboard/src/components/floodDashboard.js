@@ -134,6 +134,14 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   // 세션 타임아웃 상태
   const [showTimeoutModal, setShowTimeoutModal] = useState(false)
   const [sessionRemainingTime, setSessionRemainingTime] = useState(0)
+  
+  // 컴포넌트 로드 시 브라우저 알림 권한 초기화
+  useEffect(() => {
+    if ('Notification' in window) {
+      // 권한 상태 초기화만 수행 (상태 변수 불필요)
+      Notification.requestPermission()
+    }
+  }, [])
 
   // 설정 모달 상태
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
@@ -302,8 +310,18 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
 
       if (alert_type === 'alert_added') {
         console.log('알람 추가:', alertData)
-        // 새 알람 추가
-        setAlerts(prevAlerts => [alertData, ...prevAlerts])
+        // 새 알람 추가 (중복 방지)
+        setAlerts(prevAlerts => {
+          const existsAlready = prevAlerts.some(alert => alert.id === alertData.id)
+          if (existsAlready) {
+            console.log('중복 알람 무시:', alertData.id)
+            return prevAlerts
+          }
+          return [alertData, ...prevAlerts]
+        })
+        
+        // 브라우저 알림 표시
+        showBrowserNotification(alertData)
       } else if (alert_type === 'alert_deleted') {
         console.log('알람 삭제:', alertData)
         // 알람 삭제
@@ -323,6 +341,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       websocketService.removeCallback('alert_update', handleAlertUpdate)
       websocketService.disconnect()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 온라인 상태 감지
@@ -458,6 +477,105 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
 
   // 관리자 권한 확인 (user_level이 0인 경우만 관리자)
   const isAdmin = userInfo && userInfo.user_level === 0
+  
+  // 브라우저 알림 권한 요청
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission()
+      return permission
+    }
+    return 'denied'
+  }
+
+  // 브라우저 알림 표시
+  const showBrowserNotification = async (alertData) => {
+    try {
+      // 알림 설정 확인
+      const savedSettings = localStorage.getItem('notificationSettings')
+      let notificationsEnabled = true
+      let notificationMethod = 'browser'
+      
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings)
+        notificationsEnabled = settings.notificationsEnabled
+        notificationMethod = settings.notificationMethod
+      }
+
+      // 알림이 비활성화되어 있거나 브라우저 알림이 아닌 경우 스킵
+      if (!notificationsEnabled || notificationMethod !== 'browser') {
+        return
+      }
+
+      // 브라우저 알림 지원 여부 확인
+      if (!('Notification' in window)) {
+        console.warn('브라우저가 알림을 지원하지 않습니다.')
+        return
+      }
+
+      // 권한 확인 및 요청
+      let permission = Notification.permission
+      if (permission === 'default') {
+        permission = await requestNotificationPermission()
+      }
+
+      if (permission === 'granted') {
+        // 알림 레벨에 따른 아이콘과 우선순위 설정
+        const getNotificationConfig = (level) => {
+          switch (level) {
+            case 'CRITICAL':
+              return {
+                icon: '🚨',
+                tag: 'water-level-critical',
+                requireInteraction: true,
+                silent: false
+              }
+            case 'WARNING':
+              return {
+                icon: '⚠️',
+                tag: 'water-level-warning',
+                requireInteraction: false,
+                silent: false
+              }
+            default:
+              return {
+                icon: '✅',
+                tag: 'water-level-info',
+                requireInteraction: false,
+                silent: true
+              }
+          }
+        }
+
+        const config = getNotificationConfig(alertData.level)
+        
+        const notification = new Notification(`[수위 알림] ${alertData.location || '중앙'}`, {
+          body: alertData.message,
+          icon: '/favicon.ico',
+          tag: config.tag,
+          requireInteraction: config.requireInteraction,
+          silent: config.silent,
+          timestamp: Date.now()
+        })
+
+        // 알림 클릭 시 창 포커스
+        notification.onclick = () => {
+          window.focus()
+          notification.close()
+        }
+
+        // 자동 닫기 (긴급 알림 제외)
+        if (!config.requireInteraction) {
+          setTimeout(() => notification.close(), 5000)
+        }
+
+        console.log(`브라우저 알림 표시: ${alertData.level} - ${alertData.message}`)
+      } else {
+        console.warn('브라우저 알림 권한이 거부되었습니다.')
+      }
+    } catch (error) {
+      console.error('브라우저 알림 표시 실패:', error)
+    }
+  }
 
   // KPI 계산
   const kpis = useMemo(() => 
@@ -746,9 +864,9 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
             <div className="space-y-6">
               <Panel title="실시간 알림">
                 <div className="space-y-2 h-64 overflow-y-auto">
-                  {alerts.length > 0 ? alerts.map((alert) => (
+                  {alerts.length > 0 ? alerts.map((alert, index) => (
                     <div
-                      key={alert.id}
+                      key={`${alert.id}-${index}`}
                       className={`p-3 rounded-lg border-l-4 ${
                         alert.level === 'CRITICAL' ? 'bg-red-50 border-red-400' :
                         alert.level === 'WARNING' ? 'bg-yellow-50 border-yellow-400' :

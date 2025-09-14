@@ -40,7 +40,7 @@ export default function SessionTimeoutModal({
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isOpen, isInitialized])
+  }, [isOpen, isInitialized, onLogout])
   
 
   const formatTime = (seconds) => {
