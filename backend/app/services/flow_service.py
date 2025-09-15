@@ -226,6 +226,40 @@ class FlowService:
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"하천 정보 조회 오류: {str(e)}")
 
+    async def get_cameras_by_flow_uid(self, flow_uid: int) -> Dict:
+        """특정 하천의 카메라 목록 조회"""
+        db_pool = get_db_pool()
+
+        async with db_pool.acquire() as conn:
+            try:
+                query = """
+                SELECT
+                    camera_ip,
+                    camera_name
+                FROM camera_info
+                WHERE flow_uid = $1
+                ORDER BY camera_name
+                """
+
+                rows = await conn.fetch(query, flow_uid)
+
+                cameras = []
+                for row in rows:
+                    camera_id = str(row['camera_ip']).replace('.', '_')
+                    cameras.append({
+                        "id": camera_id,
+                        "name": row['camera_name'],
+                        "status": "online"
+                    })
+
+                return {
+                    "cameras": cameras,
+                    "status": "success"
+                }
+
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"카메라 정보 조회 오류: {str(e)}")
+
     async def get_recent_alerts(self, limit: int = 10) -> Dict:
         """최근 알람 조회"""
         db_pool = get_db_pool()

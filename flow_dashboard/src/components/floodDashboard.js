@@ -8,7 +8,6 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 
 // 모듈화된 임포트
 import { UPDATE_INTERVALS } from '../utils/constants'
-import { locations } from '../utils/constants'
 import { calculateKpis, calculateRiskLevel, formatTime } from '../utils/formatters'
 import { apiService } from '../services/apiService'
 import websocketService from '../services/websocketService'
@@ -125,6 +124,7 @@ const ChartsSection = React.memo(({ waterLevel, flowVelocity, discharge }) => (
 export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }) {
   // 상태 관리
   const [selectedLocation, setSelectedLocation] = useState('center')
+  const [locations, setLocations] = useState([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(new Date())
@@ -135,13 +135,30 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   const [showTimeoutModal, setShowTimeoutModal] = useState(false)
   const [sessionRemainingTime, setSessionRemainingTime] = useState(0)
   
-  // 컴포넌트 로드 시 브라우저 알림 권한 초기화
+  // 컴포넌트 로드 시 초기화
   useEffect(() => {
+    // 브라우저 알림 권한 초기화
     if ('Notification' in window) {
-      // 권한 상태 초기화만 수행 (상태 변수 불필요)
       Notification.requestPermission()
     }
-  }, [])
+
+    // 카메라 목록 로드
+    const loadCameras = async () => {
+      try {
+        const response = await apiService.getCameras(flowUid)
+        if (response && response.status === 'success') {
+          setLocations(response.cameras)
+          if (response.cameras.length > 0) {
+            setSelectedLocation(response.cameras[0].id)
+          }
+        }
+      } catch (error) {
+        console.error('카메라 목록 로드 실패:', error)
+      }
+    }
+
+    loadCameras()
+  }, [flowUid])
 
   // 설정 모달 상태
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
@@ -590,6 +607,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
 
   const currentLocation = locations.find(loc => loc.id === selectedLocation)
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 lg:flex">
       {/* 모바일 사이드바 오버레이 */}
@@ -740,10 +758,10 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                 <button
                   onClick={() => setShowUserManagement(true)}
                   className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
-                  title="회원 추가"
+                  title="사용자 추가"
                 >
                   <UserPlus className="h-3 w-3" />
-                  <span className="hidden sm:inline">회원 추가</span>
+                  <span className="hidden sm:inline">사용자 추가</span>
                 </button>
               )}
 
@@ -852,7 +870,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
             <div className="xl:col-span-2">
               <Panel title="CCTV 실시간 분석" subtitle={`${currentLocation?.name || '중앙'} - ${flowInfo?.flow_region || '모니터링'} 위치`}>
                 <VideoPlayer 
-                  videoPath={currentLocation?.videoPath || "/videos/영오지하도.mp4"}
+                  videoPath={currentLocation?.videoPath || "/videos/산동지하도.mp4"}
                   waterLevel={kpis.levelCm}
                   realtimeData={realtimeData}
                   videoKey={videoKey}
@@ -899,7 +917,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                 <div className="space-y-3">
                   <KakaoMap flowInfo={flowInfo} />
                   <div className="text-xs text-gray-500 space-y-1">
-                    <div>• {flowInfo?.flow_name || '영오지하차도'}</div>
+                    <div>• {flowInfo?.flow_name || '산동지하차도'}</div>
                     <div>• {flowInfo?.flow_address}</div>
                   </div>
                 </div>

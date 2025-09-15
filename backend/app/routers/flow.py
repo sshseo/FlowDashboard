@@ -43,6 +43,14 @@ async def get_flow_info(
     """하천 정보 조회"""
     return await flow_service.get_flow_info()
 
+@router.get("/cameras/{flow_uid}")
+async def get_cameras(
+        flow_uid: int,
+        current_user: str = Depends(get_current_user)
+):
+    """특정 하천의 카메라 목록 조회"""
+    return await flow_service.get_cameras_by_flow_uid(flow_uid)
+
 @router.get("/status")
 async def get_system_status(
         current_user: str = Depends(get_current_user)

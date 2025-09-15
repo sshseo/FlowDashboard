@@ -82,6 +82,20 @@ export const apiService = {
     }
   },
 
+  // 카메라 목록 가져오기
+  getCameras: async (flowUid = 1) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/cameras/${flowUid}`, {
+        headers: apiService.getAuthHeaders()
+      })
+      if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
+      return await response.json()
+    } catch (error) {
+      console.error('카메라 정보 로딩 실패:', error)
+      return null
+    }
+  },
+
   // 서버 상태 확인
   checkServerHealth: async () => {
     try {
