@@ -196,17 +196,25 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   })
   //const [wsConnected, setWsConnected] = useState(false)
 
+  // 서버 상태 확인 (로그인 화면과 동일한 방식)
+  const checkServerStatus = async () => {
+    try {
+      const data = await apiService.checkServerHealth()
+      setIsOnline(data.status === 'healthy')
+    } catch (error) {
+      setIsOnline(false)
+    }
+  }
+
   // 실시간 데이터 업데이트
   useEffect(() => {
     const updateRealtimeData = async () => {
       try {
-        console.log('API 호출 location:', selectedLocation)
         const realtimeResponse = await apiService.getRealtimeData(selectedLocation, flowUid)
         if (realtimeResponse) {
           setRealtimeData(realtimeResponse)
           setLastUpdate(new Date())
-          setIsOnline(true)
-          
+
           // 연결 상태 업데이트
           if (realtimeResponse.connection_status) {
             setConnectionStatus(realtimeResponse.connection_status)
@@ -214,7 +222,6 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         }
       } catch (error) {
         console.error('실시간 데이터 업데이트 실패:', error)
-        setIsOnline(false)
         setConnectionStatus('disconnected')
       }
     }
@@ -300,13 +307,14 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
 
     const realtimeInterval = setInterval(updateRealtimeData, UPDATE_INTERVALS.REALTIME)
     const chartInterval = setInterval(updateChartData, UPDATE_INTERVALS.CHART)
-    const temperatureInterval = setInterval(updateTemperature, parseInt(process.env.REACT_APP_TEMPERATURE_UPDATE_INTERVAL) || 300000) // 환경변수에서 온도 업데이트 간격 설정
-    // 알람은 WebSocket으로 실시간 수신하므로 폴링 제거
+    const temperatureInterval = setInterval(updateTemperature, parseInt(process.env.REACT_APP_TEMPERATURE_UPDATE_INTERVAL) || 300000)
+    const statusInterval = setInterval(checkServerStatus, UPDATE_INTERVALS.SERVER_STATUS) // 로그인 화면과 동일한 서버 상태 체크
 
     return () => {
       clearInterval(realtimeInterval)
       clearInterval(chartInterval)
       clearInterval(temperatureInterval)
+      clearInterval(statusInterval)
     }
   }, [flowInfo?.flow_latitude, flowInfo?.flow_longitude, selectedLocation, flowUid])
 
@@ -824,7 +832,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               title="실시간 수위"
               value={`${kpis.levelCm.toFixed(1)}`}
               unit="cm"
-              subtitle="AI CCTV 분석"
+              subtitle="수위 높이"
               icon={<Gauge className="h-5 w-5" />}
               trend={kpis.trend}
               color="blue"
@@ -834,7 +842,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               title="유속"
               value={`${kpis.velocityMs.toFixed(1)}`}
               unit="m/s"
-              subtitle="광학 유속계"
+              subtitle="물 흐름 속도"
               icon={<Wind className="h-5 w-5" />}
               color="green"
               isConnecting={connectionStatus === 'connecting'}
@@ -843,7 +851,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               title="유량"
               value={`${kpis.dischargeM3s.toFixed(1)}`}
               unit="m³/s"
-              subtitle="Q = A × v"
+              subtitle="초당 물 흐름량"
               icon={<Droplets className="h-5 w-5" />}
               color="cyan"
               isConnecting={connectionStatus === 'connecting'}

@@ -78,10 +78,19 @@ async def health_check():
     """서버 상태 확인 (인증 불필요)"""
     try:
         latest_data = await flow_service.get_latest_flow_data()
+
+        # 카메라 개수 조회
+        cameras_data = await flow_service.get_cameras_by_flow_uid(1)
+        connected_cameras = len(cameras_data.get("cameras", [])) if cameras_data.get("status") == "success" else 0
+
+        # AI 서버 연결 상태 확인
+        from app.services.ai_client import ai_client
+        ai_connected = ai_client.is_connected()
+
         return {
             "status": "healthy",
-            "monitoring_active": latest_data.get("status") == "success",
-            "connected_sites": 3,
+            "monitoring_active": ai_connected,  # AI 서버 연결 상태로 판단
+            "connected_sites": connected_cameras,
             "version": "1.0.0"
         }
     except Exception as e:

@@ -25,10 +25,10 @@ export const MonitoringStatus = ({ isActive, connectedSites = 0 }) => (
     )}
     <div className="flex-1">
       <div className={isActive ? 'text-blue-700' : 'text-gray-700'}>
-        {isActive ? '모니터링 활성' : '모니터링 비활성'}
+        {isActive ? 'AI 서버 활성' : 'AI 서버 비활성'}
       </div>
       <div className="text-xs text-gray-500">
-        {isActive ? `${connectedSites}개 지점 연결됨` : '연결된 지점 없음'}
+        {connectedSites > 0 ? `${connectedSites}개 지점 연결됨` : '연결된 지점 없음'}
       </div>
     </div>
   </div>
