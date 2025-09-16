@@ -3,7 +3,6 @@ from datetime import timedelta
 from app.models.auth import LoginRequest, LoginResponse, CreateUserRequest, CreateUserResponse
 from app.utils.auth_utils import verify_password, create_access_token, hash_password
 from app.utils.audit_logger import AuditLogger
-from app.utils.login_logger import LoginLogger
 from app.database import get_db_pool
 from app.config import settings
 
@@ -23,12 +22,9 @@ class AuthService:
 
             # 인증 실패 처리
             if not user_row or not verify_password(login_data.password, user_row['user_pwd']):
-                # 로그인 실패 기록
-                await LoginLogger.log_attempt(login_data.username, client_ip, success=False)
-                
-                # 감사 로그 기록
+                # 감사 로그 기록 (LoginLogger 제거, AuditLogger만 사용)
                 await AuditLogger.log_login_failure(
-                    login_data.username, client_ip, 
+                    login_data.username, client_ip,
                     "잘못된 사용자명 또는 비밀번호"
                 )
                 
@@ -37,10 +33,7 @@ class AuthService:
                     detail="사용자명 또는 비밀번호가 올바르지 않습니다."
                 )
             
-            # 로그인 성공 기록
-            await LoginLogger.log_attempt(login_data.username, client_ip, success=True)
-            
-            # 감사 로그 기록
+            # 감사 로그 기록 (LoginLogger 제거, AuditLogger만 사용)
             await AuditLogger.log_login_success(login_data.username, client_ip)
 
             # JWT 토큰 생성
