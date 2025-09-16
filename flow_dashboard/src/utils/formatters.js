@@ -13,22 +13,28 @@ export const formatNumber = (value, decimals = 1) => {
 }
 
 // 위험도 계산 (알림 설정값 사용)
-export const calculateRiskLevel = (waterLevel) => {
-  // 알림 설정에서 임계값 가져오기
-  const savedSettings = localStorage.getItem('notificationSettings');
+export const calculateRiskLevel = (waterLevel, notificationSettings = null) => {
   let warningLevel = 10; // 기본값
   let dangerLevel = 15;  // 기본값
-  
-  if (savedSettings) {
-    try {
-      const settings = JSON.parse(savedSettings);
-      warningLevel = settings.warningLevel || 10;
-      dangerLevel = settings.dangerLevel || 15;
-    } catch (error) {
-      console.warn('알림 설정 파싱 실패, 기본값 사용');
+
+  // 전달받은 설정이 있으면 우선 사용
+  if (notificationSettings) {
+    warningLevel = notificationSettings.warningLevel || 10;
+    dangerLevel = notificationSettings.dangerLevel || 15;
+  } else {
+    // 전달받은 설정이 없으면 로컬스토리지에서 가져오기 (백업용)
+    const savedSettings = localStorage.getItem('notificationSettings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        warningLevel = settings.warningLevel || 10;
+        dangerLevel = settings.dangerLevel || 15;
+      } catch (error) {
+        console.warn('알림 설정 파싱 실패, 기본값 사용');
+      }
     }
   }
-  
+
   if (waterLevel > dangerLevel) return { level: 'critical', label: '위험', color: 'text-red-500' }
   if (waterLevel > warningLevel) return { level: 'warning', label: '주의', color: 'text-yellow-500' }
   return { level: 'safe', label: '안전', color: 'text-green-500' }

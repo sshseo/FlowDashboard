@@ -134,6 +134,13 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   // 세션 타임아웃 상태
   const [showTimeoutModal, setShowTimeoutModal] = useState(false)
   const [sessionRemainingTime, setSessionRemainingTime] = useState(0)
+
+  // 알림 설정 상태
+  const [notificationSettings, setNotificationSettings] = useState({
+    notificationsEnabled: true,
+    warningLevel: 10,
+    dangerLevel: 15
+  })
   
   // 컴포넌트 로드 시 초기화
   useEffect(() => {
@@ -157,7 +164,39 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       }
     }
 
+    // 알림 설정 로드
+    const loadNotificationSettings = async () => {
+      try {
+        const response = await apiService.getNotificationSettings()
+        if (response) {
+          setNotificationSettings({
+            notificationsEnabled: response.setting_alert,
+            warningLevel: response.warning_level,
+            dangerLevel: response.danger_level
+          })
+          // 로컬스토리지도 업데이트 (백업용)
+          localStorage.setItem('notificationSettings', JSON.stringify({
+            notificationsEnabled: response.setting_alert,
+            warningLevel: response.warning_level,
+            dangerLevel: response.danger_level
+          }))
+        }
+      } catch (error) {
+        console.error('알림 설정 로드 실패:', error)
+        // 오류 시 로컬스토리지에서 가져오기
+        const savedSettings = localStorage.getItem('notificationSettings')
+        if (savedSettings) {
+          try {
+            setNotificationSettings(JSON.parse(savedSettings))
+          } catch (e) {
+            console.error('로컬스토리지 설정 파싱 실패:', e)
+          }
+        }
+      }
+    }
+
     loadCameras()
+    loadNotificationSettings()
   }, [flowUid])
 
   // 설정 모달 상태
@@ -388,34 +427,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
     setVideoKey(prev => prev + 1)
   }, [selectedLocation])
 
-  // flowInfo 변경시 온도 데이터 업데이트
-  useEffect(() => {
-    const updateTemperatureWhenLocationChanged = async () => {
-      if (flowInfo?.flow_latitude && flowInfo?.flow_longitude) {
-        try {
-          const temperatureData = await apiService.getCurrentTemperature(
-            flowInfo.flow_latitude, 
-            flowInfo.flow_longitude
-          )
-          if (temperatureData) {
-            setCurrentTemperature({ 
-              temperature: temperatureData.temperature,
-              timestamp: temperatureData.timestamp,
-              source: temperatureData.source,
-              loading: false
-            })
-          }
-        } catch (error) {
-          console.error('위치 변경시 온도 데이터 업데이트 실패:', error)
-        }
-      }
-    }
-
-    if (flowInfo) {
-      updateTemperatureWhenLocationChanged()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowInfo])
+  // flowInfo가 변경되면 updateTemperature가 자동으로 실행되므로 별도 처리 불필요
 
   // 세션 타임아웃 관리
   useEffect(() => {
@@ -615,9 +627,9 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
     [realtimeData, waterLevel, flowVelocity, discharge]
   )
 
-  const riskLevel = useMemo(() => 
-    calculateRiskLevel(kpis.levelCm), 
-    [kpis.levelCm]
+  const riskLevel = useMemo(() =>
+    calculateRiskLevel(kpis.levelCm, notificationSettings),
+    [kpis.levelCm, notificationSettings]
   )
 
   const currentLocation = locations.find(loc => loc.id === selectedLocation)
@@ -974,6 +986,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       <SystemSettings
         isOpen={showSystemSettings}
         onClose={() => setShowSystemSettings(false)}
+        userInfo={userInfo}
       />
 
       {/* 회원 관리 모달 (관리자만) */}

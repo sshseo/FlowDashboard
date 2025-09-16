@@ -1,34 +1,85 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, X, AlertTriangle } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 const NotificationSettings = ({ isOpen, onClose, userInfo }) => {
   const [settings, setSettings] = useState({
     notificationsEnabled: true,
     warningLevel: 10,      // 주의 수위 (노란색)
-    dangerLevel: 15,       // 위험 수위 (빨간색)
-    notificationMethod: 'browser'
+    dangerLevel: 15        // 위험 수위 (빨간색)
   });
+  const [loading, setLoading] = useState(false);
 
   // 관리자 권한 확인 (user_level이 0인 경우만 관리자)
   const isAdmin = userInfo && userInfo.user_level === 0;
 
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('notificationSettings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
+  // 알림 설정 로드
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getNotificationSettings();
+      if (response) {
+        setSettings({
+          notificationsEnabled: response.setting_alert,
+          warningLevel: response.warning_level,
+          dangerLevel: response.danger_level
+        });
+      }
+    } catch (error) {
+      console.error('알림 설정 로드 실패:', error);
+      // 오류 시 로컬스토리지 폴백
+      const savedSettings = localStorage.getItem('notificationSettings');
+      if (savedSettings) {
+        setSettings(JSON.parse(savedSettings));
+      }
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
 
-  const saveSettings = () => {
+  useEffect(() => {
+    if (isOpen) {
+      loadSettings();
+    }
+  }, [isOpen]);
+
+  // 모달이 열려있을 때 body 스크롤 비활성화
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // 컴포넌트 언마운트 시 스크롤 복원
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  const saveSettings = async () => {
     // 유효성 검사
     if (settings.dangerLevel <= settings.warningLevel) {
       alert('위험 수위는 주의 수위보다 높게 설정해야 합니다.');
       return;
     }
-    
-    localStorage.setItem('notificationSettings', JSON.stringify(settings));
-    console.log('알림 설정 저장:', settings);
-    onClose();
+
+    try {
+      setLoading(true);
+      const response = await apiService.updateNotificationSettings(settings);
+      if (response) {
+        // 성공 시 로컬스토리지도 업데이트 (백업용)
+        localStorage.setItem('notificationSettings', JSON.stringify(settings));
+        console.log('알림 설정 저장 성공:', settings);
+        alert('알림 설정이 저장되었습니다.');
+        onClose();
+      }
+    } catch (error) {
+      console.error('알림 설정 저장 실패:', error);
+      alert(error.message || '알림 설정 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (key, value) => {
@@ -153,38 +204,6 @@ const NotificationSettings = ({ isOpen, onClose, userInfo }) => {
             )}
           </div>
 
-          {/* 알림 방식 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              알림 방식
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="notificationMethod"
-                  value="browser"
-                  checked={settings.notificationMethod === 'browser'}
-                  onChange={(e) => isAdmin && handleChange('notificationMethod', e.target.value)}
-                  disabled={!isAdmin}
-                  className={`mr-2 ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
-                />
-                <span className="text-sm">브라우저 알림</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="notificationMethod"
-                  value="email"
-                  checked={settings.notificationMethod === 'email'}
-                  onChange={(e) => isAdmin && handleChange('notificationMethod', e.target.value)}
-                  disabled={!isAdmin}
-                  className={`mr-2 ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
-                />
-                <span className="text-sm">이메일 알림</span>
-              </label>
-            </div>
-          </div>
         </div>
 
         {/* 버튼 */}
@@ -197,14 +216,14 @@ const NotificationSettings = ({ isOpen, onClose, userInfo }) => {
           </button>
           <button
             onClick={saveSettings}
-            disabled={!isAdmin}
+            disabled={!isAdmin || loading}
             className={`flex-1 px-4 py-2 rounded-lg ${
-              isAdmin 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
+              isAdmin && !loading
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            {isAdmin ? '저장' : '관리자 권한 필요'}
+            {loading ? '저장 중...' : (isAdmin ? '저장' : '관리자 권한 필요')}
           </button>
         </div>
       </div>

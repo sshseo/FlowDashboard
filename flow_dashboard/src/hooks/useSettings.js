@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 export const useSystemSettings = () => {
   const [settings, setSettings] = useState({
     updateInterval: 30,
-    videoQuality: 'standard',
     password: ''
   });
 
