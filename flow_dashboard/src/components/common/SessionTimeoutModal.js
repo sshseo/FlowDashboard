@@ -20,17 +20,15 @@ export default function SessionTimeoutModal({
     if (!isInitialized) {
       setCountdown(remainingSeconds)
       setIsInitialized(true)
-      console.log(`세션 만료 경고: ${remainingSeconds}초로 초기화`)
     }
   }, [isOpen, remainingSeconds, isInitialized])
 
   useEffect(() => {
     if (!isOpen || !isInitialized) return
-    
+
     const interval = setInterval(() => {
       setCountdown(prev => {
-        console.log(`카운트다운: ${prev}초`)
-        if (prev <= 0) {
+        if (prev <= 1) {
           clearInterval(interval)
           onLogout()
           return 0
@@ -40,7 +38,7 @@ export default function SessionTimeoutModal({
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isOpen, isInitialized, onLogout])
+  }, [isOpen, isInitialized]) // onLogout 의존성 제거
   
 
   const formatTime = (seconds) => {
@@ -96,7 +94,7 @@ export default function SessionTimeoutModal({
             <div className="text-sm text-yellow-800">
               <p className="font-medium mb-1">보안 정책</p>
               <p>
-                사용자 보호를 위해 30분간 활동이 없으면 자동으로 로그아웃됩니다. 
+                사용자 보호를 위해 일정 시간 활동이 없으면 자동으로 로그아웃됩니다.
                 계속 사용하시려면 "세션 연장" 버튼을 클릭하세요.
               </p>
             </div>

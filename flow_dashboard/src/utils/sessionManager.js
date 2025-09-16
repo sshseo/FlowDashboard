@@ -44,8 +44,8 @@ class SessionManager {
     window.addEventListener('blur', this.handleActivity)
     
     this.resetTimer()
-    
-    console.log('세션 타임아웃 관리 시작 (30분)')
+
+    console.log('세션 타임아웃 관리 시작')
   }
 
   /**
@@ -82,12 +82,17 @@ class SessionManager {
    */
   handleActivity() {
     if (!this.isActive) return
-    
+
+    // 경고가 이미 표시된 상태에서는 활동 감지 무시 (모달 카운트다운 방해 방지)
+    if (this.warningShown) {
+      return
+    }
+
     const now = Date.now()
-    
+
     // 활동이 너무 빈번하게 감지되는 것을 방지 (1초 간격)
     if (now - this.lastActivity < 1000) return
-    
+
     this.lastActivity = now
     this.resetTimer()
   }
@@ -116,7 +121,7 @@ class SessionManager {
       clearTimeout(this.warningTimeoutId)
     }
     
-    // 경고 타이머 설정 (1분 후) - 경고가 이미 표시되지 않은 경우에만
+    // 경고 타이머 설정 - 경고가 이미 표시되지 않은 경우에만
     if (!this.warningShown) {
       this.warningTimeoutId = setTimeout(() => {
         if (this.isActive && this.onWarningCallback && !this.warningShown) {
@@ -126,8 +131,8 @@ class SessionManager {
         }
       }, this.sessionTimeout - this.warningTime)
     }
-    
-    // 타임아웃 타이머 설정 (30분 후)
+
+    // 타임아웃 타이머 설정
     this.timeoutId = setTimeout(() => {
       if (this.isActive && this.onTimeoutCallback) {
         console.log('세션 타임아웃 - 자동 로그아웃')

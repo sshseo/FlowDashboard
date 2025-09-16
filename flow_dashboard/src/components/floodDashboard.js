@@ -422,17 +422,17 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
     // 로그인 유지 여부 확인
     const isRememberMe = localStorage.getItem('isLoggedIn') === 'true'
     const loginTimestamp = localStorage.getItem('loginTimestamp')
-    
+
     // 로그인 유지가 체크되어 있고, 7일 이내인 경우
     if (isRememberMe && loginTimestamp) {
       const now = new Date().getTime()
       const loginTime = parseInt(loginTimestamp)
       const sevenDays = 7 * 24 * 60 * 60 * 1000 // 7일 (밀리초)
-      
+
       if (now - loginTime < sevenDays) {
-        console.log('로그인 유지 모드 - 세션 타임아웃 7일')
-        // 7일 세션 타임아웃 설정
-        sessionManager.setSessionTimeout(sevenDays, 5 * 60 * 1000) // 7일, 5분 전 경고
+        console.log('로그인 유지 모드 - 자동 로그아웃 비활성화')
+        // 로그인 상태 유지 시에는 세션 타임아웃 없음
+        return
       } else {
         console.log('로그인 유지 기간 만료 - 로그아웃')
         onLogout()
@@ -444,7 +444,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       sessionManager.setSessionTimeout(30 * 60 * 1000, 5 * 60 * 1000) // 30분, 5분 전 경고
     }
 
-    // 세션 타임아웃 시작
+    // 세션 타임아웃 시작 (일반 모드만)
     sessionManager.start(
       // 타임아웃 콜백 (자동 로그아웃)
       () => {
@@ -455,6 +455,13 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
       // 경고 콜백 (5분 전 알림)
       () => {
         console.log('세션 타임아웃 경고 표시')
+
+        // sessionManager의 자동 로그아웃 타이머 중지 (모달에서 직접 관리)
+        if (sessionManager.timeoutId) {
+          clearTimeout(sessionManager.timeoutId)
+          sessionManager.timeoutId = null
+        }
+
         setSessionRemainingTime(300) // 5분(300초) 카운트다운 설정
         setShowTimeoutModal(true)
       }
