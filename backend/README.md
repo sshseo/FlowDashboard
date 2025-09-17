@@ -48,6 +48,7 @@ backend/
 │   │   ├── __init__.py
 │   │   ├── auth.py          # 인증 관련 API
 │   │   ├── flow.py          # 수위 데이터 API
+│   │   ├── admin.py         # 관리자 전용 API
 │   │   └── websocket.py     # WebSocket 연결
 │   │
 │   ├── services/            # 비즈니스 로직
@@ -113,6 +114,27 @@ CREATE TABLE alert_info (
     alert_message TEXT,
     alert_type VARCHAR(10) -- '주의', '경계', '긴급', '정상'
 );
+
+-- 알림 설정 테이블
+CREATE TABLE settings (
+    setting_uid BIGSERIAL PRIMARY KEY,
+    user_uid BIGINT REFERENCES users(user_uid) ON DELETE CASCADE,
+    setting_alert BOOLEAN DEFAULT TRUE,
+    warning_level INTEGER DEFAULT 10,  -- 주의 수위 (cm)
+    danger_level INTEGER DEFAULT 15,   -- 위험 수위 (cm)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 카메라 정보 테이블
+CREATE TABLE camera_info (
+    camera_uid BIGSERIAL PRIMARY KEY,
+    flow_uid BIGINT REFERENCES flow_info(flow_uid) ON DELETE CASCADE,
+    camera_ip INET NOT NULL,           -- IP 주소 (INET 타입)
+    camera_name VARCHAR(10) NOT NULL,  -- 카메라 이름
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ### 샘플 데이터
@@ -124,7 +146,23 @@ VALUES ('admin', '$2b$12$hash...', '관리자', 1);
 
 -- 하천 정보 등록
 INSERT INTO flow_info (flow_name, flow_latitude, flow_longitude, flow_region, flow_address)
-VALUES ('영오지하차도', 35.923508, 128.519230, '칠곡', '경북 칠곡군 지천면 영오리 894');
+VALUES
+('영오지하차도', 35.923508, 128.519230, '칠곡', '경북 칠곡군 지천면 영오리 894'),
+('중앙교차점', 35.924000, 128.520000, '칠곡', '경북 칠곡군 지천면 중앙리 100'),
+('하류출구', 35.925000, 128.521000, '칠곡', '경북 칠곡군 지천면 하류리 200');
+
+-- 관리자 알림 설정 (모든 사용자가 공유하는 기본 설정)
+INSERT INTO settings (user_uid, setting_alert, warning_level, danger_level)
+VALUES (1, true, 10, 15);  -- user_uid 1은 관리자 계정
+
+-- 카메라 정보 등록
+INSERT INTO camera_info (flow_uid, camera_ip, camera_name) VALUES
+(1, '192.168.1.101', 'CAM-001'),
+(1, '192.168.1.102', 'CAM-002'),
+(2, '192.168.1.103', 'CAM-003'),
+(2, '192.168.1.104', 'CAM-004'),
+(3, '192.168.1.105', 'CAM-005'),
+(3, '192.168.1.106', 'CAM-006');
 ```
 
 ## 📡 API 문서
@@ -169,6 +207,21 @@ VALUES ('영오지하차도', 35.923508, 128.519230, '칠곡', '경북 칠곡군
 | GET | `/api/status` | 시스템 상태 | ✅ |
 | GET | `/api/health` | 서버 상태 | ❌ |
 
+### 관리자 API
+
+| Method | Endpoint | 설명 | 권한 |
+|--------|----------|------|------|
+| GET | `/api/admin/notification-settings` | 알림 설정 조회 | 관리자 |
+| PUT | `/api/admin/notification-settings` | 알림 설정 업데이트 | 관리자 |
+| GET | `/api/admin/monitoring-points` | 모니터링 지점 목록 | 관리자 |
+| POST | `/api/admin/monitoring-points` | 새 지점 추가 | 관리자 |
+| PUT | `/api/admin/monitoring-points/{flow_uid}` | 지점 정보 수정 | 관리자 |
+| DELETE | `/api/admin/monitoring-points/{flow_uid}` | 지점 삭제 | 관리자 |
+| GET | `/api/admin/cameras` | 카메라 목록 조회 | 관리자 |
+| POST | `/api/admin/cameras` | 새 카메라 추가 | 관리자 |
+| PUT | `/api/admin/cameras/{camera_uid}` | 카메라 정보 수정 | 관리자 |
+| DELETE | `/api/admin/cameras/{camera_uid}` | 카메라 삭제 | 관리자 |
+
 **실시간 데이터 응답:**
 ```json
 {
@@ -177,6 +230,35 @@ VALUES ('영오지하차도', 35.923508, 128.519230, '칠곡', '경북 칠곡군
   "flow_waterlevel": 8.2,  // 수위 (cm)
   "flow_time": "2025-01-15T10:30:00",
   "status": "success"
+}
+```
+
+**모니터링 지점 추가 요청:**
+```json
+{
+  "flow_name": "새로운지점",
+  "flow_latitude": 35.924000,
+  "flow_longitude": 128.520000,
+  "flow_region": "칠곡",
+  "flow_address": "경북 칠곡군 지천면 중앙리 100"
+}
+```
+
+**카메라 추가 요청:**
+```json
+{
+  "flow_uid": 1,
+  "camera_ip": "192.168.1.101",
+  "camera_name": "CAM-001"
+}
+```
+
+**알림 설정 업데이트 요청:**
+```json
+{
+  "notifications_enabled": true,
+  "warning_level": 12,
+  "danger_level": 18
 }
 ```
 
@@ -333,6 +415,33 @@ curl -X POST "http://localhost:8001/api/auth/login" \
 # 실시간 데이터
 curl -X GET "http://localhost:8001/api/realtime/center" \
   -H "Authorization: Bearer YOUR_TOKEN"
+
+# 관리자 API 테스트
+# 모니터링 지점 목록 조회
+curl -X GET "http://localhost:8001/api/admin/monitoring-points" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+
+# 새 모니터링 지점 추가
+curl -X POST "http://localhost:8001/api/admin/monitoring-points" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"flow_name": "새지점", "flow_latitude": 35.924, "flow_longitude": 128.520, "flow_region": "칠곡", "flow_address": "경북 칠곡군"}'
+
+# 카메라 목록 조회
+curl -X GET "http://localhost:8001/api/admin/cameras" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+
+# 새 카메라 추가
+curl -X POST "http://localhost:8001/api/admin/cameras" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"flow_uid": 1, "camera_ip": "192.168.1.107", "camera_name": "CAM-007"}'
+
+# 알림 설정 업데이트
+curl -X PUT "http://localhost:8001/api/admin/notification-settings" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"notifications_enabled": true, "warning_level": 12, "danger_level": 18}'
 ```
 
 ## 📞 문의

@@ -233,8 +233,10 @@ npm start
 |------|------|-----------|
 | 🌊 **실시간 모니터링** | 수위/유속/유량 실시간 측정 | WebSocket, PostgreSQL |
 | 🎥 **AI CCTV 분석** | 실시간 영상 분석 및 상황 인지 | React, Video.js |
-| 🚨 **즉시 알람** | 임계값 초과 시 실시간 알림 | WebSocket, Push API |
+| 🚨 **스마트 알림 시스템** | DB 기반 임계값 관리 및 실시간 알림 | DB Settings, Browser API |
 | 🗺️ **위치 기반 지도** | 카카오맵 연동 모니터링 지점 표시 | Kakao Map API |
+| ⚙️ **통합 관리 시스템** | 모니터링 지점 및 카메라 관리 | Admin Dashboard |
+| 📍 **지도 기반 좌표 선택** | 클릭으로 위도/경도 자동 입력 | Kakao Map Geocoding |
 | 📱 **PWA 지원** | 모바일 앱처럼 설치 및 사용 | Service Worker |
 | 🔐 **보안 인증** | JWT + bcrypt 기반 안전한 로그인 | FastAPI, bcrypt |
 
@@ -439,6 +441,41 @@ CREATE TABLE ip_lockouts (
 #### 3. 시스템 설정 테이블
 
 ```sql
+-- 사용자별 알림 설정
+CREATE TABLE settings (
+    setting_uid BIGSERIAL PRIMARY KEY,
+    user_uid BIGINT REFERENCES users(user_uid) ON DELETE CASCADE,
+    setting_alert BOOLEAN DEFAULT TRUE,        -- 알림 활성화 여부
+    setting_waterlevel INTEGER,                -- 기존 수위 설정 (호환성)
+    warning_level INTEGER DEFAULT 10,          -- 주의 수위 (cm)
+    danger_level INTEGER DEFAULT 15,           -- 위험 수위 (cm)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 모니터링 지점 관리 (관리자용)
+CREATE TABLE flow_info (
+    flow_uid BIGSERIAL PRIMARY KEY,
+    flow_name VARCHAR(15) NOT NULL,            -- 지점명
+    flow_latitude DOUBLE PRECISION NOT NULL,   -- 위도
+    flow_longitude DOUBLE PRECISION NOT NULL,  -- 경도
+    flow_region VARCHAR(5),                    -- 지역
+    flow_address VARCHAR(100),                 -- 주소
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 카메라 정보 관리
+CREATE TABLE camera_info (
+    camera_uid BIGSERIAL PRIMARY KEY,
+    flow_uid BIGINT REFERENCES flow_info(flow_uid) ON DELETE CASCADE,
+    camera_ip INET NOT NULL,                   -- 카메라 IP 주소
+    camera_name VARCHAR(10) NOT NULL,          -- 카메라 이름
+    camera_status VARCHAR(10) DEFAULT 'active', -- active, inactive, maintenance
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 시스템 설정 관리
 CREATE TABLE system_config (
     config_key VARCHAR(50) PRIMARY KEY,
@@ -449,23 +486,6 @@ CREATE TABLE system_config (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_by VARCHAR(20)
-);
-
--- 알람 임계값 설정
-CREATE TABLE alert_thresholds (
-    id BIGSERIAL PRIMARY KEY,
-    flow_uid BIGINT REFERENCES flow_info(flow_uid),
-    parameter_type VARCHAR(20) NOT NULL, -- water_level, flow_rate, flow_flux
-    warning_min DECIMAL(10,2),     -- 주의 최솟값
-    warning_max DECIMAL(10,2),     -- 주의 최댓값
-    danger_min DECIMAL(10,2),      -- 경계 최솟값  
-    danger_max DECIMAL(10,2),      -- 경계 최댓값
-    critical_min DECIMAL(10,2),    -- 긴급 최솟값
-    critical_max DECIMAL(10,2),    -- 긴급 최댓값
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE(flow_uid, parameter_type)
 );
 ```
 
@@ -682,6 +702,96 @@ Authorization: Bearer <token>
 ```
 
 ### 관리자 API
+
+#### GET `/api/admin/notification-settings`
+**설명**: 알림 설정 조회 (관리자 설정을 모든 사용자가 공유)
+```json
+// Response
+{
+  "setting_uid": 1,
+  "user_uid": 1,
+  "setting_alert": true,
+  "warning_level": 10,
+  "danger_level": 15
+}
+```
+
+#### PUT `/api/admin/notification-settings`
+**설명**: 알림 설정 업데이트 (관리자만 가능)
+```json
+// Request
+{
+  "notifications_enabled": true,
+  "warning_level": 12,
+  "danger_level": 18
+}
+
+// Response
+{
+  "status": "success",
+  "message": "알림 설정이 성공적으로 업데이트되었습니다"
+}
+```
+
+#### GET `/api/admin/monitoring-points`
+**설명**: 모니터링 지점 목록 조회 (관리자 전용)
+```json
+// Response
+{
+  "status": "success",
+  "monitoring_points": [
+    {
+      "flow_uid": 1,
+      "flow_name": "영오지하차도",
+      "flow_latitude": 35.923508,
+      "flow_longitude": 128.519230,
+      "flow_region": "칠곡",
+      "flow_address": "경북 칠곡군 지천면 영오리 894"
+    }
+  ]
+}
+```
+
+#### POST `/api/admin/monitoring-points`
+**설명**: 새 모니터링 지점 추가
+```json
+// Request
+{
+  "flow_name": "새로운지점",
+  "flow_latitude": 35.924000,
+  "flow_longitude": 128.520000,
+  "flow_region": "칠곡",
+  "flow_address": "경북 칠곡군 지천면 중앙리 100"
+}
+```
+
+#### GET `/api/admin/cameras`
+**설명**: 카메라 목록 조회 (관리자 전용)
+```json
+// Response
+{
+  "status": "success",
+  "cameras": [
+    {
+      "camera_uid": 1,
+      "flow_uid": 1,
+      "camera_ip": "192.168.1.101",
+      "camera_name": "CAM-001"
+    }
+  ]
+}
+```
+
+#### POST `/api/admin/cameras`
+**설명**: 새 카메라 추가
+```json
+// Request
+{
+  "flow_uid": 1,
+  "camera_ip": "192.168.1.102",
+  "camera_name": "CAM-002"
+}
+```
 
 #### GET `/api/admin/audit-logs`
 **설명**: 감사 로그 조회 (관리자 전용)
@@ -934,6 +1044,59 @@ htop
 iostat
 netstat -an
 ```
+
+### 📊 스마트 알림 시스템
+- **DB 기반 임계값 관리**: 관리자가 설정한 주의/위험 수위가 실시간 알림에 자동 반영
+- **통합 설정 관리**: 모든 사용자가 관리자 설정을 공유하여 일관된 알림 기준 적용
+- **실시간 반영**: 관리자가 설정을 변경하면 즉시 실시간 모니터링에 적용
+
+### ⚙️ 통합 관리 시스템
+- **모니터링 지점 관리**:
+  - 지점 추가/수정/삭제 완전 CRUD 구현 (관리자 전용)
+  - 지도 기반 좌표 선택으로 정확한 위치 설정
+  - 실시간 좌표 검증 및 주소 자동 변환
+  - PostgreSQL flow_info 테이블과 직접 연동
+- **카메라 관리 시스템**:
+  - CCTV 카메라 정보 등록/관리 완전 CRUD 구현
+  - IP 주소 기반 카메라 연결 설정 (INET 타입 지원)
+  - 지점별 카메라 그룹 관리 (camera_info 테이블)
+  - 실시간 카메라 상태 모니터링
+
+### 📍 지도 기반 좌표 선택
+- **카카오맵 완전 연동**:
+  - 클릭으로 위도/경도 자동 입력
+  - 주소 검색 및 역지오코딩 서비스
+  - 실시간 마커 표시 및 주소 확인
+  - 현재위치 버튼으로 GPS 좌표 자동 설정
+- **사용자 친화적 인터페이스**:
+  - 지도 확대/축소로 정밀한 위치 선택
+  - 선택된 좌표의 상세 주소 자동 표시
+  - 서비스 로딩 재시도 로직으로 안정성 보장
+  - 모달 형태로 독립적인 위치 선택 환경
+
+### 🔐 강화된 권한 관리
+- **관리자 전용 기능**: `user_level = 0` 계정만 시스템 설정 변경 가능
+- **감사 로그**: 모든 관리 작업이 audit_logs 테이블에 기록
+- **권한별 UI**: 일반 사용자는 읽기 전용, 관리자는 전체 기능 접근
+
+### 🛠️ 기술적 개선사항
+- **PostgreSQL 스키마 확장**:
+  - settings 테이블에 warning_level, danger_level 컬럼 추가
+  - camera_info 테이블 생성 (INET IP 주소 타입 지원)
+  - flow_info 테이블 구조 최적화
+- **API 엔드포인트 대폭 확장**:
+  - 관리자용 CRUD API 완전 구현 (`/api/admin/*`)
+  - 모니터링 지점 관리 API 4개 엔드포인트
+  - 카메라 관리 API 4개 엔드포인트
+  - IP 주소 타입 변환 처리 로직
+- **실시간 데이터 연동**:
+  - DB 설정값이 실시간 알림 로직에 직접 연결
+  - WebSocket을 통한 즉시 설정 반영
+- **프론트엔드 상태 관리**:
+  - React hooks를 통한 효율적인 설정 상태 관리
+  - LocationPicker 컴포넌트 개발
+  - 카카오맵 서비스 로딩 재시도 로직 구현
+  - 모달 스크롤 방지 및 UX 개선
 
 ## 📞 지원 및 문의
 
