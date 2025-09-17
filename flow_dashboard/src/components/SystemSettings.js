@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, X, Key, MapPin, Plus, Edit, Trash2, Camera, Map } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSettings';
 import { apiService } from '../services/apiService';
@@ -96,7 +96,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
   }, [isOpen]);
 
   // 모니터링 지점 데이터 로드
-  const loadMonitoringPoints = async () => {
+  const loadMonitoringPoints = useCallback(async () => {
     if (!isAdmin) return;
 
     setLoadingPoints(true);
@@ -111,17 +111,17 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     } finally {
       setLoadingPoints(false);
     }
-  };
+  }, [isAdmin]);
 
   // 모니터링 지점 관리 패널 열 때 데이터 로드
   useEffect(() => {
     if (showPointManagement && isAdmin) {
       loadMonitoringPoints();
     }
-  }, [showPointManagement, isAdmin]);
+  }, [showPointManagement, isAdmin, loadMonitoringPoints]);
 
   // 카메라 데이터 로드
-  const loadCameras = async () => {
+  const loadCameras = useCallback(async () => {
     if (!isAdmin) return;
 
     setLoadingCameras(true);
@@ -136,7 +136,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     } finally {
       setLoadingCameras(false);
     }
-  };
+  }, [isAdmin]);
 
   // 카메라 관리 패널 열 때 데이터 로드
   useEffect(() => {
@@ -147,7 +147,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
         loadMonitoringPoints();
       }
     }
-  }, [showCameraManagement, isAdmin]);
+  }, [showCameraManagement, isAdmin, loadCameras, loadMonitoringPoints, monitoringPoints.length]);
 
   // 비밀번호 검증 함수
   const validatePassword = (password) => {
@@ -343,12 +343,6 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     onClose();
   };
 
-  const handleChange = (key, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
 
   // 지점 저장 (임시 상태로 추가/수정)
   const savePoint = () => {
@@ -601,13 +595,6 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
 
   // 지도에서 위치 선택 버튼
   const openLocationPicker = () => {
-    const initialLocation = pointForm.flow_latitude && pointForm.flow_longitude
-      ? {
-          lat: parseFloat(pointForm.flow_latitude),
-          lng: parseFloat(pointForm.flow_longitude)
-        }
-      : null;
-
     setShowLocationPicker(true);
   };
 
