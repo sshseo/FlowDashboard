@@ -42,6 +42,16 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
   const [loadingCameras, setLoadingCameras] = useState(false);
   const [cameraError, setCameraError] = useState('');
 
+  // 임시 변경사항 관리 (최종 저장 시 일괄 처리)
+  const [pendingChanges, setPendingChanges] = useState({
+    pointsToAdd: [],
+    pointsToUpdate: [],
+    pointsToDelete: [],
+    camerasToAdd: [],
+    camerasToUpdate: [],
+    camerasToDelete: []
+  });
+
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -56,6 +66,20 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     // 글로벌 설정을 로컬 설정에 동기화
     setSettings(globalSettings);
   }, [globalSettings]);
+
+  // 모달이 열릴 때 임시 변경사항 초기화
+  useEffect(() => {
+    if (isOpen) {
+      setPendingChanges({
+        pointsToAdd: [],
+        pointsToUpdate: [],
+        pointsToDelete: [],
+        camerasToAdd: [],
+        camerasToUpdate: [],
+        camerasToDelete: []
+      });
+    }
+  }, [isOpen]);
 
   // 모달이 열려있을 때 body 스크롤 비활성화
   useEffect(() => {
@@ -173,31 +197,32 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
   };
 
   const saveSettings = async () => {
+    let hasErrors = false;
+
+    // 비밀번호 변경 처리
     if (showPasswordChange) {
       // 에러 상태 초기화
       setCurrentPasswordError('');
       setApiError('');
-      
+
       if (!currentPassword) {
         setCurrentPasswordError('기존 비밀번호를 입력해주세요.');
         return;
       }
-      
+
       if (passwordErrors.length > 0) {
         setApiError(`비밀번호 조건을 만족하지 않습니다: ${passwordErrors.join(', ')}`);
         return;
       }
-      
+
       if (newPassword !== confirmPassword) {
-        // 이미 confirmPasswordError에서 처리됨
         return;
       }
 
-      // 실제 비밀번호 변경 API 호출
       try {
         setPasswordChanging(true);
         const result = await apiService.changePassword(currentPassword, newPassword);
-        
+
         if (result && result.success) {
           setApiError('');
           setShowPasswordChange(false);
@@ -207,7 +232,6 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
           setPasswordErrors([]);
           setConfirmPasswordError('');
           setCurrentPasswordError('');
-          alert('비밀번호가 성공적으로 변경되었습니다.'); // 성공 메시지는 alert 유지
         }
       } catch (error) {
         setApiError(error.message || '비밀번호 변경에 실패했습니다.');
@@ -217,10 +241,105 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
       }
     }
 
+    // 모든 임시 변경사항 일괄 처리
+    if (isAdmin) {
+      try {
+        // 지점 삭제 처리
+        for (const flowUid of pendingChanges.pointsToDelete) {
+          try {
+            await apiService.deleteMonitoringPoint(flowUid);
+          } catch (error) {
+            console.error(`지점 삭제 실패 (ID: ${flowUid}):`, error);
+            hasErrors = true;
+          }
+        }
+
+        // 지점 추가 처리
+        for (const pointData of pendingChanges.pointsToAdd) {
+          try {
+            await apiService.createMonitoringPoint(pointData);
+          } catch (error) {
+            console.error('지점 추가 실패:', error);
+            hasErrors = true;
+          }
+        }
+
+        // 지점 수정 처리
+        for (const update of pendingChanges.pointsToUpdate) {
+          try {
+            await apiService.updateMonitoringPoint(update.flow_uid, update.data);
+          } catch (error) {
+            console.error(`지점 수정 실패 (ID: ${update.flow_uid}):`, error);
+            hasErrors = true;
+          }
+        }
+
+        // 카메라 삭제 처리
+        for (const cameraUid of pendingChanges.camerasToDelete) {
+          try {
+            await apiService.deleteCamera(cameraUid);
+          } catch (error) {
+            console.error(`카메라 삭제 실패 (ID: ${cameraUid}):`, error);
+            hasErrors = true;
+          }
+        }
+
+        // 카메라 추가 처리
+        for (const cameraData of pendingChanges.camerasToAdd) {
+          try {
+            await apiService.createCamera(cameraData);
+          } catch (error) {
+            console.error('카메라 추가 실패:', error);
+            hasErrors = true;
+          }
+        }
+
+        // 카메라 수정 처리
+        for (const update of pendingChanges.camerasToUpdate) {
+          try {
+            await apiService.updateCamera(update.camera_uid, update.data);
+          } catch (error) {
+            console.error(`카메라 수정 실패 (ID: ${update.camera_uid}):`, error);
+            hasErrors = true;
+          }
+        }
+
+        // 변경사항 초기화
+        setPendingChanges({
+          pointsToAdd: [],
+          pointsToUpdate: [],
+          pointsToDelete: [],
+          camerasToAdd: [],
+          camerasToUpdate: [],
+          camerasToDelete: []
+        });
+
+        // 데이터 새로고침
+        if (showPointManagement) {
+          await loadMonitoringPoints();
+        }
+        if (showCameraManagement) {
+          await loadCameras();
+        }
+
+      } catch (error) {
+        console.error('설정 저장 중 오류:', error);
+        hasErrors = true;
+      }
+    }
+
     // 다른 설정들은 localStorage에만 저장 (기존 로직 유지)
     const updatedSettings = { ...settings };
     updateGlobalSettings(updatedSettings);
     setSettings(updatedSettings);
+
+    // 성공/실패 메시지
+    if (hasErrors) {
+      alert('일부 설정 저장에 실패했습니다. 콘솔에서 오류를 확인해주세요.');
+    } else {
+      alert('모든 설정이 성공적으로 저장되었습니다.');
+    }
+
     onClose();
   };
 
@@ -231,51 +350,65 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     }));
   };
 
-  // 지점 저장 (추가/수정)
-  const savePoint = async () => {
+  // 지점 저장 (임시 상태로 추가/수정)
+  const savePoint = () => {
     if (!pointForm.flow_name || !pointForm.flow_latitude || !pointForm.flow_longitude) {
       setPointError('지점명, 위도, 경도는 필수 입력 항목입니다.');
       return;
     }
 
-    try {
-      setPointError('');
+    setPointError('');
 
-      const pointData = {
-        flow_name: pointForm.flow_name,
-        flow_latitude: parseFloat(pointForm.flow_latitude),
-        flow_longitude: parseFloat(pointForm.flow_longitude),
-        flow_region: pointForm.flow_region || null,
-        flow_address: pointForm.flow_address || null
-      };
+    const pointData = {
+      flow_name: pointForm.flow_name,
+      flow_latitude: parseFloat(pointForm.flow_latitude),
+      flow_longitude: parseFloat(pointForm.flow_longitude),
+      flow_region: pointForm.flow_region || null,
+      flow_address: pointForm.flow_address || null
+    };
 
-      if (editingPoint) {
-        // 수정
-        await apiService.updateMonitoringPoint(editingPoint.flow_uid, pointData);
-        alert('지점이 성공적으로 수정되었습니다.');
-      } else {
-        // 추가
-        await apiService.createMonitoringPoint(pointData);
-        alert('지점이 성공적으로 추가되었습니다.');
-      }
+    if (editingPoint) {
+      // 수정: 기존 지점 업데이트
+      const updatedPoint = { ...editingPoint, ...pointData };
 
-      // 폼 초기화
-      setPointForm({
-        flow_name: '',
-        flow_latitude: '',
-        flow_longitude: '',
-        flow_region: '',
-        flow_address: ''
-      });
-      setEditingPoint(null);
-      setShowPointForm(false);
+      // UI에서 즉시 반영
+      setMonitoringPoints(prev =>
+        prev.map(point =>
+          point.flow_uid === editingPoint.flow_uid ? updatedPoint : point
+        )
+      );
 
-      // 목록 새로고침
-      await loadMonitoringPoints();
+      // 임시 변경사항에 추가
+      setPendingChanges(prev => ({
+        ...prev,
+        pointsToUpdate: prev.pointsToUpdate.filter(p => p.flow_uid !== editingPoint.flow_uid)
+          .concat([{ flow_uid: editingPoint.flow_uid, data: pointData }])
+      }));
+    } else {
+      // 추가: 임시 ID로 새 지점 생성
+      const tempId = Date.now();
+      const newPoint = { ...pointData, flow_uid: tempId, isTemp: true };
 
-    } catch (error) {
-      setPointError(error.message || '지점 저장에 실패했습니다.');
+      // UI에서 즉시 반영
+      setMonitoringPoints(prev => [...prev, newPoint]);
+
+      // 임시 변경사항에 추가
+      setPendingChanges(prev => ({
+        ...prev,
+        pointsToAdd: [...prev.pointsToAdd, pointData]
+      }));
     }
+
+    // 폼 초기화
+    setPointForm({
+      flow_name: '',
+      flow_latitude: '',
+      flow_longitude: '',
+      flow_region: '',
+      flow_address: ''
+    });
+    setEditingPoint(null);
+    setShowPointForm(false);
   };
 
   // 지점 수정 시작
@@ -292,22 +425,37 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     setPointError('');
   };
 
-  // 지점 삭제
-  const deletePoint = async (point) => {
+  // 지점 삭제 (임시 상태로 마킹)
+  const deletePoint = (point) => {
     if (!window.confirm(`'${point.flow_name}' 지점을 정말 삭제하시겠습니까?\n\n관련된 모든 측정 데이터도 함께 삭제됩니다.`)) {
       return;
     }
 
-    try {
-      setPointError('');
-      await apiService.deleteMonitoringPoint(point.flow_uid);
-      alert('지점이 성공적으로 삭제되었습니다.');
+    setPointError('');
 
-      // 목록 새로고침
-      await loadMonitoringPoints();
+    // UI에서 즉시 제거
+    setMonitoringPoints(prev => prev.filter(p => p.flow_uid !== point.flow_uid));
 
-    } catch (error) {
-      setPointError(error.message || '지점 삭제에 실패했습니다.');
+    if (point.isTemp) {
+      // 임시 추가된 지점이면 pendingChanges에서도 제거
+      setPendingChanges(prev => ({
+        ...prev,
+        pointsToAdd: prev.pointsToAdd.filter((_, index) =>
+          prev.pointsToAdd.length - 1 - index !== prev.pointsToAdd.findIndex(p =>
+            p.flow_name === point.flow_name &&
+            p.flow_latitude === point.flow_latitude &&
+            p.flow_longitude === point.flow_longitude
+          )
+        )
+      }));
+    } else {
+      // 기존 지점이면 삭제 목록에 추가
+      setPendingChanges(prev => ({
+        ...prev,
+        pointsToDelete: [...prev.pointsToDelete, point.flow_uid],
+        // 수정 목록에서도 제거 (삭제할 것이므로)
+        pointsToUpdate: prev.pointsToUpdate.filter(p => p.flow_uid !== point.flow_uid)
+      }));
     }
   };
 
@@ -325,47 +473,61 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     setPointError('');
   };
 
-  // 카메라 저장 (추가/수정)
-  const saveCamera = async () => {
+  // 카메라 저장 (임시 상태로 추가/수정)
+  const saveCamera = () => {
     if (!cameraForm.camera_name || !cameraForm.camera_ip || !cameraForm.flow_uid) {
       setCameraError('카메라명, IP, 모니터링 지점은 필수 입력 항목입니다.');
       return;
     }
 
-    try {
-      setCameraError('');
+    setCameraError('');
 
-      const cameraData = {
-        camera_name: cameraForm.camera_name,
-        camera_ip: cameraForm.camera_ip,
-        flow_uid: parseInt(cameraForm.flow_uid)
-      };
+    const cameraData = {
+      camera_name: cameraForm.camera_name,
+      camera_ip: cameraForm.camera_ip,
+      flow_uid: parseInt(cameraForm.flow_uid)
+    };
 
-      if (editingCamera) {
-        // 수정
-        await apiService.updateCamera(editingCamera.camera_uid, cameraData);
-        alert('카메라가 성공적으로 수정되었습니다.');
-      } else {
-        // 추가
-        await apiService.createCamera(cameraData);
-        alert('카메라가 성공적으로 추가되었습니다.');
-      }
+    if (editingCamera) {
+      // 수정: 기존 카메라 업데이트
+      const updatedCamera = { ...editingCamera, ...cameraData };
 
-      // 폼 초기화
-      setCameraForm({
-        camera_name: '',
-        camera_ip: '',
-        flow_uid: ''
-      });
-      setEditingCamera(null);
-      setShowCameraForm(false);
+      // UI에서 즉시 반영
+      setCameras(prev =>
+        prev.map(camera =>
+          camera.camera_uid === editingCamera.camera_uid ? updatedCamera : camera
+        )
+      );
 
-      // 목록 새로고침
-      await loadCameras();
+      // 임시 변경사항에 추가
+      setPendingChanges(prev => ({
+        ...prev,
+        camerasToUpdate: prev.camerasToUpdate.filter(c => c.camera_uid !== editingCamera.camera_uid)
+          .concat([{ camera_uid: editingCamera.camera_uid, data: cameraData }])
+      }));
+    } else {
+      // 추가: 임시 ID로 새 카메라 생성
+      const tempId = Date.now();
+      const newCamera = { ...cameraData, camera_uid: tempId, isTemp: true };
 
-    } catch (error) {
-      setCameraError(error.message || '카메라 저장에 실패했습니다.');
+      // UI에서 즉시 반영
+      setCameras(prev => [...prev, newCamera]);
+
+      // 임시 변경사항에 추가
+      setPendingChanges(prev => ({
+        ...prev,
+        camerasToAdd: [...prev.camerasToAdd, cameraData]
+      }));
     }
+
+    // 폼 초기화
+    setCameraForm({
+      camera_name: '',
+      camera_ip: '',
+      flow_uid: ''
+    });
+    setEditingCamera(null);
+    setShowCameraForm(false);
   };
 
   // 카메라 수정 시작
@@ -380,22 +542,37 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     setCameraError('');
   };
 
-  // 카메라 삭제
-  const deleteCamera = async (camera) => {
+  // 카메라 삭제 (임시 상태로 마킹)
+  const deleteCamera = (camera) => {
     if (!window.confirm(`'${camera.camera_name}' 카메라를 정말 삭제하시겠습니까?`)) {
       return;
     }
 
-    try {
-      setCameraError('');
-      await apiService.deleteCamera(camera.camera_uid);
-      alert('카메라가 성공적으로 삭제되었습니다.');
+    setCameraError('');
 
-      // 목록 새로고침
-      await loadCameras();
+    // UI에서 즉시 제거
+    setCameras(prev => prev.filter(c => c.camera_uid !== camera.camera_uid));
 
-    } catch (error) {
-      setCameraError(error.message || '카메라 삭제에 실패했습니다.');
+    if (camera.isTemp) {
+      // 임시 추가된 카메라면 pendingChanges에서도 제거
+      setPendingChanges(prev => ({
+        ...prev,
+        camerasToAdd: prev.camerasToAdd.filter((_, index) =>
+          prev.camerasToAdd.length - 1 - index !== prev.camerasToAdd.findIndex(c =>
+            c.camera_name === camera.camera_name &&
+            c.camera_ip === camera.camera_ip &&
+            c.flow_uid === camera.flow_uid
+          )
+        )
+      }));
+    } else {
+      // 기존 카메라면 삭제 목록에 추가
+      setPendingChanges(prev => ({
+        ...prev,
+        camerasToDelete: [...prev.camerasToDelete, camera.camera_uid],
+        // 수정 목록에서도 제거 (삭제할 것이므로)
+        camerasToUpdate: prev.camerasToUpdate.filter(c => c.camera_uid !== camera.camera_uid)
+      }));
     }
   };
 
