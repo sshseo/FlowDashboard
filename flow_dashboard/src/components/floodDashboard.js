@@ -474,7 +474,24 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
           sessionManager.timeoutId = null
         }
 
-        setSessionRemainingTime(300) // 5분(300초) 카운트다운 설정
+        // JWT 토큰의 실제 만료 시간 기준으로 계산
+        const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+        let actualRemaining = 300 // 기본 5분
+
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]))
+            const tokenExpiry = payload.exp * 1000 // JWT exp는 초 단위
+            const now = Date.now()
+            const tokenRemaining = Math.max(0, Math.floor((tokenExpiry - now) / 1000))
+            actualRemaining = Math.min(tokenRemaining, 300)
+            console.log('Token expires in:', tokenRemaining, 'seconds, showing:', actualRemaining)
+          } catch (error) {
+            console.error('JWT 토큰 파싱 실패:', error)
+          }
+        }
+
+        setSessionRemainingTime(actualRemaining)
         setShowTimeoutModal(true)
       }
     )

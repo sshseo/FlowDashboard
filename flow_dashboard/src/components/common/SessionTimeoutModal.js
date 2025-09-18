@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Clock, Shield, LogOut, RefreshCw } from 'lucide-react'
 
 export default function SessionTimeoutModal({
@@ -9,9 +9,11 @@ export default function SessionTimeoutModal({
 }) {
   const [countdown, setCountdown] = useState(0)
   const [isInitialized, setIsInitialized] = useState(false)
+  const onLogoutRef = useRef(onLogout)
 
-  const handleLogout = useCallback(() => {
-    onLogout()
+  // onLogout 참조 업데이트
+  useEffect(() => {
+    onLogoutRef.current = onLogout
   }, [onLogout])
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export default function SessionTimeoutModal({
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(interval)
-          handleLogout()
+          onLogoutRef.current()
           return 0
         }
         return prev - 1
@@ -42,7 +44,7 @@ export default function SessionTimeoutModal({
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isOpen, isInitialized, handleLogout])
+  }, [isOpen, isInitialized])
   
 
   const formatTime = (seconds) => {
