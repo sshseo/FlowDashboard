@@ -47,9 +47,11 @@ app = FastAPI(
 # 보안 미들웨어 설정
 
 # 1. 신뢰할 수 있는 호스트만 허용
+trusted_hosts = os.getenv("TRUSTED_HOSTS", "").split(",")
+trusted_hosts = [host.strip() for host in trusted_hosts if host.strip()]
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "172.30.1.95", "222.103.78.124", "*.yourdomain.com"]
+    allowed_hosts=trusted_hosts
 )
 
 # 2. 보안 헤더 미들웨어
@@ -90,4 +92,6 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "8001"))
+    uvicorn.run(app, host=host, port=port)

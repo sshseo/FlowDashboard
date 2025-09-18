@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Optional
 from datetime import datetime
 from app.services.ai_data_service import ai_data_service
@@ -17,9 +18,9 @@ MSG = {
 }
 
 class AITcpClient:
-    def __init__(self, host="172.30.1.62", port=50000):
-        self.host = host
-        self.port = port
+    def __init__(self, host=None, port=None):
+        self.host = host or os.getenv("AI_SERVER_HOST")
+        self.port = port or int(os.getenv("AI_SERVER_PORT", "50000"))
         self.reader: Optional[asyncio.StreamReader] = None
         self.writer: Optional[asyncio.StreamWriter] = None
         self.running = False

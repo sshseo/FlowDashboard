@@ -1,4 +1,6 @@
 // WebSocket 연결 관리 서비스
+import { API_BASE_URL } from '../utils/constants';
+
 class WebSocketService {
   constructor() {
     this.ws = null;
@@ -19,9 +21,7 @@ class WebSocketService {
       this.ws.close();
     }
 
-    const wsUrl = process.env.REACT_APP_API_URL 
-      ? process.env.REACT_APP_API_URL.replace('http', 'ws') + '/api/ws'
-      : 'ws://localhost:8001/api/ws';
+    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/api/ws';
 
     console.log(`WebSocket 연결 시도: ${wsUrl}`);
 
@@ -44,8 +44,7 @@ class WebSocketService {
 
   async checkServerHealth() {
     try {
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8001';
-      const response = await fetch(`${baseUrl}/api/health`, {
+      const response = await fetch(`${API_BASE_URL}/api/health`, {
         method: 'GET',
         timeout: 3000
       });

@@ -22,7 +22,11 @@ self.addEventListener('fetch', function(event) {
         if (response) {
           return response;
         }
-        return fetch(event.request);
+        return fetch(event.request).catch(function(error) {
+          // 네트워크 요청 실패 시 에러를 무시하고 undefined 반환
+          console.log('Fetch failed for:', event.request.url, error);
+          return undefined;
+        });
       }
     )
   );
