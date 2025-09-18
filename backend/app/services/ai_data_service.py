@@ -115,10 +115,38 @@ class AIDataService:
         try:
             from app.services.flow_service import FlowService
             from datetime import datetime, timedelta
-            
-            # 임계값 설정
-            WARNING_LEVEL = 10  # cm - 주의 수위
-            DANGER_LEVEL = 15   # cm - 위험 수위
+
+            # 데이터베이스에서 실시간 임계값 조회
+            try:
+                from app.database import get_db_pool
+                db_pool = get_db_pool()
+                async with db_pool.acquire() as conn:
+                    # 관리자 설정 조회
+                    admin_user = await conn.fetchrow("""
+                        SELECT user_uid FROM users WHERE user_level = 0 LIMIT 1
+                    """)
+
+                    if admin_user:
+                        settings = await conn.fetchrow("""
+                            SELECT warning_level, danger_level
+                            FROM settings
+                            WHERE user_uid = $1
+                        """, admin_user["user_uid"])
+
+                        if settings:
+                            WARNING_LEVEL = settings["warning_level"] or 10  # cm - 주의 수위
+                            DANGER_LEVEL = settings["danger_level"] or 15    # cm - 위험 수위
+                        else:
+                            WARNING_LEVEL = 10  # 기본값
+                            DANGER_LEVEL = 15   # 기본값
+                    else:
+                        WARNING_LEVEL = 10  # 기본값
+                        DANGER_LEVEL = 15   # 기본값
+            except Exception as e:
+                logger.error(f"알림 설정 조회 실패, 기본값 사용: {e}")
+                WARNING_LEVEL = 10  # 기본값
+                DANGER_LEVEL = 15   # 기본값
+
             RAPID_CHANGE_THRESHOLD = 5.0  # cm - 급변 감지 임계값
             
             # 알림 시스템 상태 초기화
