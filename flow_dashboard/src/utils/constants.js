@@ -1,13 +1,15 @@
 // API 설정 - 현재 접속 환경에 따라 동적 설정
 const getApiBaseUrl = () => {
-  // 현재 호스트가 localhost인 경우 로컬 개발 서버 사용
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:8001';
-  }
   // 환경변수가 설정되어 있으면 우선 사용
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
+  // 현재 호스트가 localhost인 경우 로컬 개발 서버 사용
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:8001';
+  }
+  // 기본값 (fallback)
+  return 'https://flowdashboard.duckdns.org';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
