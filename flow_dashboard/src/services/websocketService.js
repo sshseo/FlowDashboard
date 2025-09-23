@@ -73,7 +73,7 @@ class WebSocketService {
       
       try {
         const message = JSON.parse(event.data);
-        console.log('WebSocket 메시지 수신:', message);
+        //console.log('WebSocket 메시지 수신:', message);
         this.handleMessage(message);
       } catch (error) {
         console.error('메시지 파싱 오류:', error);

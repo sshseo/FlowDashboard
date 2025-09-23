@@ -84,15 +84,26 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
   // 모달이 열려있을 때 body 스크롤 비활성화
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+      // 현재 스크롤 위치 저장
+      const scrollY = window.scrollY;
 
-    // 컴포넌트 언마운트 시 스크롤 복원
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+      // body 스크롤 완전 차단
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        // 스크롤 위치 복원
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
   }, [isOpen]);
 
   // 모니터링 지점 데이터 로드
@@ -601,8 +612,30 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      onClick={(e) => {
+        // 모달 배경 클릭 시 스크롤 방지
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onWheel={(e) => {
+        // 휠 스크롤 방지
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onTouchMove={(e) => {
+        // 터치 스크롤 방지
+        e.preventDefault();
+      }}
+    >
+      <div
+        className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto"
+        onClick={(e) => {
+          // 모달 내부 클릭 시 이벤트 전파 중단 (뒷화면 스크롤 방지)
+          e.stopPropagation();
+        }}
+      >
         <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
