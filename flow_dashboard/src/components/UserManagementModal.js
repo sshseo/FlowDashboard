@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { X, UserPlus, Eye, EyeOff } from 'lucide-react'
+import { apiService } from '../services/apiService'
 
 const UserManagementModal = ({ isOpen, onClose, onAddUser }) => {
   const [formData, setFormData] = useState({
@@ -8,12 +9,15 @@ const UserManagementModal = ({ isOpen, onClose, onAddUser }) => {
     confirmPassword: '',
     user_name: '',
     user_level: '1',
+    user_flow_uid: '',
     phone: ''
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [monitoringPoints, setMonitoringPoints] = useState([])
+  const [loadingMonitoringPoints, setLoadingMonitoringPoints] = useState(false)
 
   const userLevels = [
     { value: '0', label: '관리자' },
@@ -21,13 +25,60 @@ const UserManagementModal = ({ isOpen, onClose, onAddUser }) => {
     { value: '2', label: '모니터링' }
   ]
 
+  // 모니터링 지점 목록 로드
+  const loadMonitoringPoints = async () => {
+    try {
+      setLoadingMonitoringPoints(true)
+      const response = await apiService.getMonitoringPointsForUsers()
+      if (response && response.monitoring_points) {
+        setMonitoringPoints([
+          { value: '', label: '모니터링 지점 선택' },
+          ...response.monitoring_points
+        ])
+      }
+    } catch (error) {
+      console.error('모니터링 지점 목록 로드 실패:', error)
+      // 오류 시 기본값 사용
+      setMonitoringPoints([
+        { value: '', label: '모니터링 지점 선택' }
+      ])
+    } finally {
+      setLoadingMonitoringPoints(false)
+    }
+  }
+
+  // 모달이 열려있을 때 body 스크롤 비활성화 및 모니터링 지점 목록 로드
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      loadMonitoringPoints(); // 모달 열릴 때 모니터링 지점 목록 로드
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // 컴포넌트 언마운트 시 스크롤 복원
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-    
+
+    // 권한이 관리자(0)로 변경되면 모니터링 지점을 초기화
+    if (name === 'user_level' && value === '0') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        user_flow_uid: ''
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -61,6 +112,11 @@ const UserManagementModal = ({ isOpen, onClose, onAddUser }) => {
       newErrors.user_name = '사용자 이름을 입력하세요'
     }
 
+    // 운영자/모니터링 레벨은 모니터링 지점 선택 필수
+    if ((formData.user_level === '1' || formData.user_level === '2') && !formData.user_flow_uid) {
+      newErrors.user_flow_uid = '모니터링 지점을 선택하세요'
+    }
+
     if (!formData.phone.trim()) {
       newErrors.phone = '전화번호를 입력하세요'
     } else if (!/^010-?\d{4}-?\d{4}$/.test(formData.phone.replace(/\s/g, ''))) {
@@ -86,17 +142,19 @@ const UserManagementModal = ({ isOpen, onClose, onAddUser }) => {
         password: formData.password,
         user_name: formData.user_name.trim(),
         user_level: parseInt(formData.user_level),
+        user_flow_uid: formData.user_flow_uid ? parseInt(formData.user_flow_uid) : null,
         phone: formData.phone.replace(/\s/g, '')
       }
       
       await onAddUser(userData)
-      
+
       setFormData({
         user_id: '',
         password: '',
         confirmPassword: '',
         user_name: '',
         user_level: '1',
+        user_flow_uid: '',
         phone: ''
       })
       setErrors({})
@@ -116,6 +174,7 @@ const UserManagementModal = ({ isOpen, onClose, onAddUser }) => {
         confirmPassword: '',
         user_name: '',
         user_level: '1',
+        user_flow_uid: '',
         phone: ''
       })
       setErrors({})
@@ -257,6 +316,38 @@ const UserManagementModal = ({ isOpen, onClose, onAddUser }) => {
               ))}
             </select>
           </div>
+
+          {/* 모니터링 지점 선택 (관리자가 아닌 경우만) */}
+          {formData.user_level !== '0' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                담당 모니터링 지점 *
+              </label>
+              <select
+                name="user_flow_uid"
+                value={formData.user_flow_uid}
+                onChange={handleInputChange}
+                disabled={isSubmitting || loadingMonitoringPoints}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                  errors.user_flow_uid ? 'border-red-300' : 'border-gray-300'
+                }`}
+              >
+                {loadingMonitoringPoints ? (
+                  <option value="">모니터링 지점 목록 로딩 중...</option>
+                ) : (
+                  monitoringPoints.map(point => (
+                    <option key={point.value} value={point.value}>
+                      {point.label}
+                    </option>
+                  ))
+                )}
+              </select>
+              {errors.user_flow_uid && <p className="text-red-500 text-xs mt-1">{errors.user_flow_uid}</p>}
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.user_level === '1' ? '운영자는 선택한 지점의 알림만 받습니다' : '모니터링 담당 지점을 선택하세요'}
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

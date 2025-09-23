@@ -26,6 +26,7 @@ class CreateUserRequest(BaseModel):
     password: str
     user_name: str
     user_level: int
+    user_flow_uid: Optional[int] = None
     phone: str
 
 

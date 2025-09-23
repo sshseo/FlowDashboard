@@ -88,13 +88,14 @@ class AuthService:
             try:
                 # 새 사용자 추가
                 user_uid = await conn.fetchval(
-                    """INSERT INTO users (user_id, user_pwd, user_name, user_level, user_phone, user_createtime)
-                       VALUES ($1, $2, $3, $4, $5, NOW())
+                    """INSERT INTO users (user_id, user_pwd, user_name, user_level, user_flow_uid, user_phone, user_createtime)
+                       VALUES ($1, $2, $3, $4, $5, $6, NOW())
                        RETURNING user_uid""",
                     user_data.user_id,
                     hashed_password,
                     user_data.user_name,
                     user_data.user_level,
+                    user_data.user_flow_uid if user_data.user_level != 0 else None,  # 관리자는 NULL
                     user_data.phone
                 )
                 

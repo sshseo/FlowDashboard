@@ -8,8 +8,9 @@ function App() {
   const [userInfo, setUserInfo] = useState(null);
 
   // 페이지 로드 시 로그인 상태 확인
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const checkLoginStatus = () => {
+    const checkLoginStatus = async () => {
       try {
         // localStorage와 sessionStorage 둘 다 확인
         const localToken = localStorage.getItem('access_token');
@@ -33,7 +34,7 @@ function App() {
 
             if (now - loginTime > thirtyDaysInMs) {
               // 1일 지났으면 자동 로그아웃
-              handleLogout();
+              await handleLogout();
               setIsLoading(false);
               return;
             }
@@ -51,19 +52,21 @@ function App() {
             console.log('로그인 상태 복원됨:', parsedUserInfo.user_name);
           } catch (error) {
             console.error('사용자 정보 파싱 오류:', error);
-            handleLogout();
+            await handleLogout();
           }
         }
       } catch (error) {
         console.error('로그인 상태 확인 오류:', error);
-        handleLogout();
+        await handleLogout();
       }
 
       setIsLoading(false);
     };
 
     checkLoginStatus();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // 로그인 처리 함수
   const handleLogin = (rememberMe = false, userData = null) => {
@@ -77,7 +80,7 @@ function App() {
   };
 
   // 로그아웃 처리 함수
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsLoggedIn(false);
     setUserInfo(null);
 

@@ -472,5 +472,35 @@ export const apiService = {
       }
       throw error
     }
+  },
+
+  // 모니터링 지점 목록 조회 (flow_info 테이블에서)
+  getMonitoringPointsForUsers: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/monitoring-points`, {
+        method: 'GET',
+        headers: apiService.getAuthHeaders()
+      })
+
+      if (response.status === 401) {
+        console.warn('토큰 만료됨, 로그아웃 처리')
+        localStorage.removeItem('access_token')
+        sessionStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return null
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || '모니터링 지점 목록 조회에 실패했습니다.')
+      }
+
+      return await response.json()
+    } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.')
+      }
+      throw error
+    }
   }
 }

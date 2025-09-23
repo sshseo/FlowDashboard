@@ -4,7 +4,7 @@ import { apiService } from '../services/apiService';
 
 const NotificationSettings = ({ isOpen, onClose, userInfo }) => {
   const [settings, setSettings] = useState({
-    notificationsEnabled: true,
+    notificationsEnabled: false,  // 기본값을 false로 변경
     warningLevel: 10,      // 주의 수위 (노란색)
     dangerLevel: 15        // 위험 수위 (빨간색)
   });
@@ -17,21 +17,21 @@ const NotificationSettings = ({ isOpen, onClose, userInfo }) => {
   const loadSettings = async () => {
     try {
       setLoading(true);
+
+      // DB에서 알림 설정 로드
       const response = await apiService.getNotificationSettings();
+
       if (response) {
         setSettings({
-          notificationsEnabled: response.setting_alert,
+          notificationsEnabled: response.setting_alert || false,
           warningLevel: response.warning_level,
           dangerLevel: response.danger_level
         });
+
+        console.log('알림 설정 로드:', response);
       }
     } catch (error) {
       console.error('알림 설정 로드 실패:', error);
-      // 오류 시 로컬스토리지 폴백
-      const savedSettings = localStorage.getItem('notificationSettings');
-      if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
-      }
     } finally {
       setLoading(false);
     }

@@ -6,6 +6,13 @@ const urlsToCache = [
   '/manifest.json'
 ];
 
+// PWA에서 즉시 활성화
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME)

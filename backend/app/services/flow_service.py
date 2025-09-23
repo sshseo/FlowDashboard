@@ -1,10 +1,13 @@
 # app/services/flow_service.py
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+import logging
 from app.database import get_db_pool
 from app.services.ai_data_buffer import ai_data_buffer
 from app.services.ai_data_service import ai_data_service
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 class FlowService:
     def __init__(self, flow_uid: int = 1):
@@ -343,6 +346,7 @@ class FlowService:
 
                 # WebSocket으로 실시간 브로드캐스트
                 await broadcast_alert_update("alert_added", new_alert)
+
 
                 return {
                     "alert": new_alert,

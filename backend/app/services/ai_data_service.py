@@ -190,8 +190,12 @@ class AIDataService:
                     rapid_change_detected = True
                     logger.warning(f"급변 감지! 1분내 {level_increase:.1f}cm 상승: {oldest_level:.1f}cm → {water_level_cm:.1f}cm")
             
-            # 4. 쿨다운 체크 (같은 레벨 알림은 5분 간격)
-            cooldown_time = timedelta(minutes=5)
+            # 4. 쿨다운 체크 (위험 수위는 더 짧은 간격, 나머지는 5분 간격)
+            if current_level == 'danger':
+                cooldown_time = timedelta(minutes=2)  # 위험 수위는 2분마다
+            else:
+                cooldown_time = timedelta(minutes=5)  # 주의/정상은 5분마다
+
             can_send_alert = True
             if current_level in state['last_alert_time']:
                 time_since_last = now - state['last_alert_time'][current_level]
@@ -233,9 +237,11 @@ class AIDataService:
                 logger.info(f"급변 감지 알림 발송: {alert_message}")
             """
             
-            # 레벨 변경 + 쿨다운 통과 시 알림
-            #elif state['last_alert_level'] != current_level and can_send_alert:
-            if state['last_alert_level'] != current_level and can_send_alert:
+            # 레벨 변경 시 또는 위험 수위 지속 시 알림
+            level_changed = state['last_alert_level'] != current_level
+            danger_sustained = current_level == 'danger' and can_send_alert
+
+            if (level_changed and can_send_alert) or danger_sustained:
                 # 연속 감지 조건 (임시 서버에서는 항상 True)
                 consecutive_threshold_met = True  # 실제 서버에서는 위 주석된 로직 사용
                 
@@ -256,11 +262,12 @@ class AIDataService:
             if should_send_alert and alert_message:
                 flow_service = FlowService(flow_uid=1)
                 await flow_service.add_alert(alert_message, alert_type)
-                
+
+
                 # 상태 업데이트
                 state['last_alert_level'] = current_level
                 state['last_alert_time'][current_level] = now
-                
+
                 logger.info(f"스마트 알림 발송: {alert_type} - {alert_message}")
             
             # 8. 디버그 로그 (10초마다)
