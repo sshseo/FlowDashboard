@@ -144,22 +144,26 @@ export const apiService = {
           new_password: newPassword
         })
       })
-      
+
       if (response.status === 401) {
-        console.warn('토큰 만료됨, 로그아웃 처리')
         localStorage.removeItem('access_token')
         sessionStorage.removeItem('access_token')
         window.location.href = '/login'
         return null
       }
-      
+
       if (!response.ok) {
         try {
           const errorData = await response.json()
-          throw new Error(errorData.detail || '비밀번호 변경에 실패했습니다.')
+          // 에러 메시지에서 상태 코드 제거하여 사용자 친화적으로 표시
+          let cleanMessage = errorData.detail || '비밀번호 변경에 실패했습니다.'
+          if (cleanMessage.includes('400:') || cleanMessage.includes('500:')) {
+            cleanMessage = cleanMessage.replace(/^\d+:\s*/, '')
+          }
+          throw new Error(cleanMessage)
         } catch (e) {
           if (e.message && !e.message.includes('JSON')) {
-            throw e // 이미 처리된 에러 메시지
+            throw e
           }
           throw new Error('비밀번호 변경에 실패했습니다.')
         }

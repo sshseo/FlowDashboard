@@ -243,6 +243,22 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
           setPasswordErrors([]);
           setConfirmPasswordError('');
           setCurrentPasswordError('');
+
+          // 비밀번호 변경 성공 시 다른 변경사항이 없으면 여기서 종료
+          const hasOtherChanges = isAdmin && (
+            pendingChanges.pointsToAdd.length > 0 ||
+            pendingChanges.pointsToUpdate.length > 0 ||
+            pendingChanges.pointsToDelete.length > 0 ||
+            pendingChanges.camerasToAdd.length > 0 ||
+            pendingChanges.camerasToUpdate.length > 0 ||
+            pendingChanges.camerasToDelete.length > 0
+          );
+
+          if (!hasOtherChanges) {
+            alert('비밀번호가 성공적으로 변경되었습니다.');
+            onClose();
+            return;
+          }
         }
       } catch (error) {
         setApiError(error.message || '비밀번호 변경에 실패했습니다.');
@@ -255,7 +271,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     // 모든 임시 변경사항 일괄 처리
     if (isAdmin) {
       try {
-        // 지점 삭제 처리
+        // 지점 삭제 처리 (먼저 처리)
         for (const flowUid of pendingChanges.pointsToDelete) {
           try {
             await apiService.deleteMonitoringPoint(flowUid);
@@ -265,10 +281,24 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
           }
         }
 
-        // 지점 추가 처리
+        // 지점 추가 처리 (카메라보다 먼저 처리해야 함)
+        const addedPointsMapping = {}; // 임시 ID -> 실제 DB ID 매핑
         for (const pointData of pendingChanges.pointsToAdd) {
           try {
-            await apiService.createMonitoringPoint(pointData);
+            const response = await apiService.createMonitoringPoint(pointData);
+            if (response && response.flow_uid) {
+              // 동일한 지점명과 좌표로 임시 지점 찾기
+              const tempPoint = monitoringPoints.find(p =>
+                p.isTemp &&
+                p.flow_name === pointData.flow_name &&
+                p.flow_latitude === pointData.flow_latitude &&
+                p.flow_longitude === pointData.flow_longitude
+              );
+              if (tempPoint) {
+                addedPointsMapping[tempPoint.flow_uid] = response.flow_uid;
+                console.log(`지점 ID 매핑: 임시 ${tempPoint.flow_uid} -> 실제 ${response.flow_uid}`);
+              }
+            }
           } catch (error) {
             console.error('지점 추가 실패:', error);
             hasErrors = true;
@@ -295,10 +325,15 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
           }
         }
 
-        // 카메라 추가 처리
+        // 카메라 추가 처리 (임시 지점 ID를 실제 ID로 변환)
         for (const cameraData of pendingChanges.camerasToAdd) {
           try {
-            await apiService.createCamera(cameraData);
+            const updatedCameraData = { ...cameraData };
+            // 임시 지점 ID인 경우 실제 ID로 변환
+            if (addedPointsMapping[cameraData.flow_uid]) {
+              updatedCameraData.flow_uid = addedPointsMapping[cameraData.flow_uid];
+            }
+            await apiService.createCamera(updatedCameraData);
           } catch (error) {
             console.error('카메라 추가 실패:', error);
             hasErrors = true;
@@ -624,10 +659,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
         e.preventDefault();
         e.stopPropagation();
       }}
-      onTouchMove={(e) => {
-        // 터치 스크롤 방지
-        e.preventDefault();
-      }}
+      style={{ touchAction: 'none' }}
     >
       <div
         className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto"
