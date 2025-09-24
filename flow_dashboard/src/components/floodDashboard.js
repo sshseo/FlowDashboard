@@ -961,7 +961,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                 <div className="space-y-3">
                   <KakaoMap flowInfo={flowInfo} />
                   <div className="text-xs text-gray-500 space-y-1">
-                    <div>• {flowInfo?.flow_name || '산동지하차도'}</div>
+                    <div>• {flowInfo?.flow_name || ''}</div>
                     <div>• {flowInfo?.flow_address}</div>
                   </div>
                 </div>

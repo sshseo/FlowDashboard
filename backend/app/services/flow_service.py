@@ -195,13 +195,13 @@ class FlowService:
         async with db_pool.acquire() as conn:
             try:
                 query = """
-                SELECT 
+                SELECT
                     flow_name,
                     flow_latitude,
                     flow_longitude,
                     flow_region,
                     flow_address
-                FROM flow_info 
+                FROM flow_info
                 WHERE flow_uid = $1
                 """
 

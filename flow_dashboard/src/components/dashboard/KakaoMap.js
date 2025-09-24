@@ -82,26 +82,68 @@ export default function KakaoMap({ flowInfo }) {
 
       marker.setMap(map)
 
-      const infowindow = new window.kakao.maps.InfoWindow({
+      // CustomOverlay를 사용하여 크기 조절 가능한 박스 생성
+      const customOverlay = new window.kakao.maps.CustomOverlay({
         content: `
-          <div style="padding:8px; font-size:12px; width:200px; text-align:center;">
-            <strong style="color:#2563eb;">${flowInfo.flow_name}</strong><br/>
-            <span style="color:#666; font-size:11px;">${flowInfo.flow_region} 모니터링 지점</span><br/>
-            <span style="color:#888; font-size:10px;">${flowInfo.flow_address}</span><br/>
-            <span style="color:#10b981; font-size:10px;">🟢 수위센서 + AI CCTV 정상 작동</span>
+          <div style="
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            text-align: center;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            display: inline-block;
+          ">
+            <strong style="color:#2563eb;">${flowInfo.flow_name}</strong>
+            <div style="
+              position: absolute;
+              bottom: -8px;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 0;
+              height: 0;
+              border-left: 8px solid transparent;
+              border-right: 8px solid transparent;
+              border-top: 8px solid white;
+            "></div>
+            <div style="
+              position: absolute;
+              bottom: -9px;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 0;
+              height: 0;
+              border-left: 8px solid transparent;
+              border-right: 8px solid transparent;
+              border-top: 8px solid #ccc;
+            "></div>
           </div>
         `,
-        removable: false
-      })
+        position: markerPosition,
+        yAnchor: 2.7
+      });
 
-      infowindow.open(map, marker)
+      customOverlay.setMap(map)
+
+      // 마커 클릭 시 CustomOverlay 표시/숨김 토글
+      let overlayVisible = true;
 
       window.kakao.maps.event.addListener(marker, 'click', () => {
-        infowindow.open(map, marker)
+        if (overlayVisible) {
+          customOverlay.setMap(null);
+          overlayVisible = false;
+        } else {
+          customOverlay.setMap(map);
+          overlayVisible = true;
+        }
       })
 
       window.kakao.maps.event.addListener(map, 'click', () => {
-        infowindow.close()
+        customOverlay.setMap(null);
+        overlayVisible = false;
       })
 
     } catch (error) {

@@ -256,6 +256,28 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
 
           if (!hasOtherChanges) {
             alert('비밀번호가 성공적으로 변경되었습니다.');
+            // 모든 상태 초기화
+            setShowPointManagement(false);
+            setShowCameraManagement(false);
+            setShowPasswordChange(false);
+            setShowPointForm(false);
+            setEditingPoint(null);
+            setPointForm({
+              flow_name: '',
+              flow_latitude: '',
+              flow_longitude: '',
+              flow_region: '',
+              flow_address: ''
+            });
+            setPointError('');
+            setShowCameraForm(false);
+            setEditingCamera(null);
+            setCameraForm({
+              camera_name: '',
+              camera_ip: '',
+              flow_uid: ''
+            });
+            setCameraError('');
             onClose();
             return;
           }
@@ -386,6 +408,35 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
       alert('모든 설정이 성공적으로 저장되었습니다.');
     }
 
+    // 모든 상태 초기화 후 모달 종료
+    setShowPointManagement(false);
+    setShowCameraManagement(false);
+    setShowPasswordChange(false);
+    setShowPointForm(false);
+    setEditingPoint(null);
+    setPointForm({
+      flow_name: '',
+      flow_latitude: '',
+      flow_longitude: '',
+      flow_region: '',
+      flow_address: ''
+    });
+    setPointError('');
+    setShowCameraForm(false);
+    setEditingCamera(null);
+    setCameraForm({
+      camera_name: '',
+      camera_ip: '',
+      flow_uid: ''
+    });
+    setCameraError('');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordErrors([]);
+    setConfirmPasswordError('');
+    setCurrentPasswordError('');
+    setApiError('');
     onClose();
   };
 
@@ -662,25 +713,68 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
       style={{ touchAction: 'none' }}
     >
       <div
-        className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => {
           // 모달 내부 클릭 시 이벤트 전파 중단 (뒷화면 스크롤 방지)
           e.stopPropagation();
         }}
       >
-        <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Settings className="h-5 w-5 text-blue-500" />
-            <h2 className="text-lg font-semibold">시스템 설정</h2>
+        {/* 고정 헤더 */}
+        <div className="sticky top-0 bg-white z-10 border-b border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-blue-500" />
+              <h2 className="text-lg font-semibold">시스템 설정</h2>
+            </div>
+            <button
+              onClick={() => {
+                // 섹션 상태 초기화
+                setShowPointManagement(false);
+                setShowCameraManagement(false);
+                setShowPasswordChange(false);
+
+                // 지점 폼 초기화
+                setShowPointForm(false);
+                setEditingPoint(null);
+                setPointForm({
+                  flow_name: '',
+                  flow_latitude: '',
+                  flow_longitude: '',
+                  flow_region: '',
+                  flow_address: ''
+                });
+                setPointError('');
+
+                // 카메라 폼 초기화
+                setShowCameraForm(false);
+                setEditingCamera(null);
+                setCameraForm({
+                  camera_name: '',
+                  camera_ip: '',
+                  flow_uid: ''
+                });
+                setCameraError('');
+
+                // 비밀번호 폼 초기화
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+                setPasswordErrors([]);
+                setConfirmPasswordError('');
+                setCurrentPasswordError('');
+                setApiError('');
+
+                onClose();
+              }}
+              className="p-1 hover:bg-gray-100 rounded-full"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
+
+        {/* 스크롤 가능한 내용 */}
+        <div className="flex-1 overflow-y-auto p-6 pt-6">
 
         <div className="space-y-6">
           {/* 모니터링 지점 관리 */}
@@ -894,47 +988,6 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
                     새 카메라 추가
                   </button>
 
-                  {/* 카메라 목록 */}
-                  <div className="space-y-2">
-                    {loadingCameras ? (
-                      <div className="text-center py-4 text-sm text-gray-500">
-                        로딩 중...
-                      </div>
-                    ) : cameras.length === 0 ? (
-                      <div className="text-center py-4 text-sm text-gray-500">
-                        등록된 카메라가 없습니다.
-                      </div>
-                    ) : (
-                      cameras.map(camera => (
-                        <div key={camera.camera_uid} className="flex items-center justify-between p-2 bg-white rounded border">
-                          <div className="text-sm">
-                            <div className="font-medium">{camera.camera_name}</div>
-                            <div className="text-gray-500 text-xs">
-                              IP: {camera.camera_ip}
-                              {camera.flow_name && ` • 지점: ${camera.flow_name}`}
-                            </div>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => startEditCamera(camera)}
-                              className="p-1 text-gray-500 hover:text-blue-500"
-                              title="수정"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => deleteCamera(camera)}
-                              className="p-1 text-gray-500 hover:text-red-500"
-                              title="삭제"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
                   {/* 카메라 추가/수정 폼 */}
                   {showCameraForm && (
                     <div className="p-3 bg-white rounded border space-y-3">
@@ -990,6 +1043,47 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
                       </div>
                     </div>
                   )}
+
+                  {/* 카메라 목록 */}
+                  <div className="space-y-2">
+                    {loadingCameras ? (
+                      <div className="text-center py-4 text-sm text-gray-500">
+                        로딩 중...
+                      </div>
+                    ) : cameras.length === 0 ? (
+                      <div className="text-center py-4 text-sm text-gray-500">
+                        등록된 카메라가 없습니다.
+                      </div>
+                    ) : (
+                      cameras.map(camera => (
+                        <div key={camera.camera_uid} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <div className="text-sm">
+                            <div className="font-medium">{camera.camera_name}</div>
+                            <div className="text-gray-500 text-xs">
+                              IP: {camera.camera_ip}
+                              {camera.flow_name && ` • 지점: ${camera.flow_name}`}
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => startEditCamera(camera)}
+                              className="p-1 text-gray-500 hover:text-blue-500"
+                              title="수정"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => deleteCamera(camera)}
+                              className="p-1 text-gray-500 hover:text-red-500"
+                              title="삭제"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1096,7 +1190,45 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
         {/* 버튼 */}
         <div className="flex gap-3 mt-8">
           <button
-            onClick={onClose}
+            onClick={() => {
+              // 섹션 상태 초기화
+              setShowPointManagement(false);
+              setShowCameraManagement(false);
+              setShowPasswordChange(false);
+
+              // 지점 폼 초기화
+              setShowPointForm(false);
+              setEditingPoint(null);
+              setPointForm({
+                flow_name: '',
+                flow_latitude: '',
+                flow_longitude: '',
+                flow_region: '',
+                flow_address: ''
+              });
+              setPointError('');
+
+              // 카메라 폼 초기화
+              setShowCameraForm(false);
+              setEditingCamera(null);
+              setCameraForm({
+                camera_name: '',
+                camera_ip: '',
+                flow_uid: ''
+              });
+              setCameraError('');
+
+              // 비밀번호 폼 초기화
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+              setPasswordErrors([]);
+              setConfirmPasswordError('');
+              setCurrentPasswordError('');
+              setApiError('');
+
+              onClose();
+            }}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
           >
             취소
