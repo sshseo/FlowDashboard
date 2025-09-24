@@ -701,13 +701,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     <div
       className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
       onClick={(e) => {
-        // 모달 배경 클릭 시 스크롤 방지
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onWheel={(e) => {
-        // 휠 스크롤 방지
-        e.preventDefault();
+        // 모달 배경 클릭 시 이벤트 전파 중단
         e.stopPropagation();
       }}
       style={{ touchAction: 'none' }}
@@ -1050,12 +1044,19 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
                       <div className="text-center py-4 text-sm text-gray-500">
                         로딩 중...
                       </div>
-                    ) : cameras.length === 0 ? (
-                      <div className="text-center py-4 text-sm text-gray-500">
-                        등록된 카메라가 없습니다.
-                      </div>
-                    ) : (
-                      cameras.map(camera => (
+                    ) : (() => {
+                      // 삭제 예정인 지점에 연결된 카메라를 제외한 필터링된 카메라 목록
+                      const filteredCameras = cameras.filter(camera => {
+                        return !pendingChanges.pointsToDelete.includes(camera.flow_uid);
+                      });
+
+                      return filteredCameras.length === 0 ? (
+                        <div className="text-center py-4 text-sm text-gray-500">
+                          등록된 카메라가 없습니다.
+                        </div>
+                      ) : (
+                        filteredCameras
+                        .map(camera => (
                         <div key={camera.camera_uid} className="flex items-center justify-between p-2 bg-white rounded border">
                           <div className="text-sm">
                             <div className="font-medium">{camera.camera_name}</div>
@@ -1082,7 +1083,8 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
                           </div>
                         </div>
                       ))
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
