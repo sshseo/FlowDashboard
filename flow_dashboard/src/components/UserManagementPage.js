@@ -316,7 +316,7 @@ export default function UserManagementPage({ onBack }) {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
-            새 회원 추가
+            사용자 추가
           </button>
         </div>
 
@@ -331,7 +331,7 @@ export default function UserManagementPage({ onBack }) {
         {(showAddForm || editingUser) && (
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <h3 className="text-lg font-medium mb-4">
-              {editingUser ? '회원 정보 수정' : '새 회원 추가'}
+              {editingUser ? '회원 정보 수정' : '사용자 추가'}
             </h3>
             <form onSubmit={editingUser ? handleEditUser : handleAddUser}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
