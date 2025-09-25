@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from app.models.auth import LoginRequest, LoginResponse, CreateUserRequest, CreateUserResponse
+from app.models.auth import LoginRequest, LoginResponse, CreateUserRequest, CreateUserResponse, UserResponse, UserListResponse, UpdateUserRequest
 from pydantic import BaseModel
 from app.services.auth_service import AuthService
 from app.dependencies import get_current_user
@@ -89,3 +89,142 @@ async def get_available_monitoring_points(current_user: dict = Depends(get_curre
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"모니터링 지점 목록 조회 실패: {str(e)}")
+
+
+# 사용자 관리 API 추가 (관리자 전용)
+
+@router.get("/users", response_model=UserListResponse)
+async def get_users(current_user: dict = Depends(get_current_user)):
+    """사용자 목록 조회 (관리자만 가능)"""
+    # 관리자 권한 확인
+    if current_user.get("user_level", 1) != 0:
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+
+    try:
+        db_pool = get_db_pool()
+        async with db_pool.acquire() as conn:
+            users = await conn.fetch("""
+                SELECT user_uid, user_id, user_name, user_level, user_createtime, user_phone, user_flow_uid
+                FROM users
+                ORDER BY user_createtime DESC
+            """)
+
+            user_list = []
+            for user in users:
+                user_list.append({
+                    "user_uid": user["user_uid"],
+                    "user_id": user["user_id"],
+                    "user_name": user["user_name"],
+                    "user_level": user["user_level"],
+                    "user_phone": user["user_phone"] if user["user_phone"] else None,
+                    "user_flow_uid": user["user_flow_uid"],
+                    "created_at": user["user_createtime"].isoformat() if user["user_createtime"] else None
+                })
+
+            return {
+                "status": "success",
+                "users": user_list
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"사용자 목록 조회 실패: {str(e)}")
+
+@router.put("/users/{user_uid}")
+async def update_user(
+    user_uid: int,
+    user_data: UpdateUserRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """사용자 정보 수정 (관리자만 가능)"""
+    # 관리자 권한 확인
+    if current_user.get("user_level", 1) != 0:
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+
+    try:
+        db_pool = get_db_pool()
+        async with db_pool.acquire() as conn:
+            # 사용자 존재 확인
+            existing_user = await conn.fetchrow(
+                "SELECT user_uid, user_id FROM users WHERE user_uid = $1", user_uid
+            )
+
+            if not existing_user:
+                raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+
+            # 자기 자신의 권한 레벨은 변경할 수 없음
+            if user_uid == current_user["user_uid"] and user_data.user_level != current_user["user_level"]:
+                raise HTTPException(status_code=400, detail="자신의 권한 레벨은 변경할 수 없습니다")
+
+            # 비밀번호가 제공된 경우 해시 처리
+            if user_data.password:
+                hashed_password = auth_service.hash_password(user_data.password)
+                await conn.execute("""
+                    UPDATE users
+                    SET user_name = $1, user_level = $2, user_phone = $3, user_flow_uid = $4, user_pwd = $5
+                    WHERE user_uid = $6
+                """, user_data.user_name, user_data.user_level, user_data.user_phone or None,
+                    user_data.user_flow_uid if user_data.user_level != 0 else None, hashed_password, user_uid)
+            else:
+                # 비밀번호는 변경하지 않음
+                await conn.execute("""
+                    UPDATE users
+                    SET user_name = $1, user_level = $2, user_phone = $3, user_flow_uid = $4
+                    WHERE user_uid = $5
+                """, user_data.user_name, user_data.user_level, user_data.user_phone or None,
+                    user_data.user_flow_uid if user_data.user_level != 0 else None, user_uid)
+
+            return {
+                "status": "success",
+                "message": "사용자 정보가 성공적으로 수정되었습니다"
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"사용자 정보 수정 실패: {str(e)}")
+
+@router.delete("/users/{user_uid}")
+async def delete_user(
+    user_uid: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """사용자 삭제 (관리자만 가능)"""
+    # 관리자 권한 확인
+    if current_user.get("user_level", 1) != 0:
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+
+    try:
+        db_pool = get_db_pool()
+        async with db_pool.acquire() as conn:
+            # 사용자 존재 확인
+            existing_user = await conn.fetchrow(
+                "SELECT user_uid, user_id, user_level FROM users WHERE user_uid = $1", user_uid
+            )
+
+            if not existing_user:
+                raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+
+            # 자기 자신은 삭제할 수 없음
+            if user_uid == current_user["user_uid"]:
+                raise HTTPException(status_code=400, detail="자신의 계정은 삭제할 수 없습니다")
+
+            # 마지막 관리자 삭제 방지
+            if existing_user["user_level"] == 0:
+                admin_count = await conn.fetchval(
+                    "SELECT COUNT(*) FROM users WHERE user_level = 0"
+                )
+                if admin_count <= 1:
+                    raise HTTPException(status_code=400, detail="마지막 관리자 계정은 삭제할 수 없습니다")
+
+            # 사용자 삭제
+            await conn.execute("DELETE FROM users WHERE user_uid = $1", user_uid)
+
+            return {
+                "status": "success",
+                "message": "사용자가 성공적으로 삭제되었습니다"
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"사용자 삭제 실패: {str(e)}")

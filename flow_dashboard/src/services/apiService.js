@@ -506,5 +506,145 @@ export const apiService = {
       }
       throw error
     }
+  },
+
+  // 회원 관리 API (auth API 사용)
+  // 회원 목록 조회
+  getUsers: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
+        headers: apiService.getAuthHeaders()
+      })
+
+      if (response.status === 401) {
+        console.warn('토큰 만료됨, 로그아웃 처리')
+        localStorage.removeItem('access_token')
+        sessionStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return null
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || '회원 목록 조회에 실패했습니다.')
+      }
+
+      return await response.json()
+    } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.')
+      }
+      throw error
+    }
+  },
+
+  // 회원 생성
+  createUser: async (userData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/create-user`, {
+        method: 'POST',
+        headers: apiService.getAuthHeaders(),
+        body: JSON.stringify({
+          user_id: userData.user_id,
+          user_name: userData.user_name,
+          password: userData.password,
+          user_level: userData.user_level,
+          phone: userData.phone || null,
+          user_flow_uid: userData.user_flow_uid || null
+        })
+      })
+
+      if (response.status === 401) {
+        console.warn('토큰 만료됨, 로그아웃 처리')
+        localStorage.removeItem('access_token')
+        sessionStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return null
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        let errorMessage = errorData.detail || '회원 생성에 실패했습니다.'
+
+        // 중복 사용자 ID 에러 처리
+        if (errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
+          errorMessage = '이미 존재하는 사용자 ID입니다.'
+        }
+
+        throw new Error(errorMessage)
+      }
+
+      return await response.json()
+    } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.')
+      }
+      throw error
+    }
+  },
+
+  // 회원 수정
+  updateUser: async (userUid, userData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users/${userUid}`, {
+        method: 'PUT',
+        headers: apiService.getAuthHeaders(),
+        body: JSON.stringify({
+          user_name: userData.user_name,
+          user_level: userData.user_level,
+          password: userData.password || undefined
+        })
+      })
+
+      if (response.status === 401) {
+        console.warn('토큰 만료됨, 로그아웃 처리')
+        localStorage.removeItem('access_token')
+        sessionStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return null
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || '회원 정보 수정에 실패했습니다.')
+      }
+
+      return await response.json()
+    } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.')
+      }
+      throw error
+    }
+  },
+
+  // 회원 삭제
+  deleteUser: async (userUid) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users/${userUid}`, {
+        method: 'DELETE',
+        headers: apiService.getAuthHeaders()
+      })
+
+      if (response.status === 401) {
+        console.warn('토큰 만료됨, 로그아웃 처리')
+        localStorage.removeItem('access_token')
+        sessionStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return null
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || '회원 삭제에 실패했습니다.')
+      }
+
+      return await response.json()
+    } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.')
+      }
+      throw error
+    }
   }
 }

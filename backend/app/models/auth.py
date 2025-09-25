@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 
 class LoginRequest(BaseModel):
@@ -27,10 +27,33 @@ class CreateUserRequest(BaseModel):
     user_name: str
     user_level: int
     user_flow_uid: Optional[int] = None
-    phone: str
+    phone: Optional[str] = None
 
 
 class CreateUserResponse(BaseModel):
     success: bool
     message: str
     user_uid: Optional[int] = None
+
+
+class UserResponse(BaseModel):
+    user_uid: int
+    user_id: str
+    user_name: str
+    user_level: int
+    user_phone: Optional[str] = None
+    user_flow_uid: Optional[int] = None
+    created_at: Optional[str] = None
+
+
+class UserListResponse(BaseModel):
+    status: str
+    users: List[UserResponse]
+
+
+class UpdateUserRequest(BaseModel):
+    user_name: str
+    user_level: int
+    user_phone: Optional[str] = None
+    user_flow_uid: Optional[int] = None
+    password: Optional[str] = None

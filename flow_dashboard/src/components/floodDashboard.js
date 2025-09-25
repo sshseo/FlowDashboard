@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
   Camera, AlertTriangle, Waves, Gauge, Clock,
   RefreshCw, Menu, X, Bell, Settings,
-  Droplets, Wind, Thermometer, LogOut, User, UserPlus
+  Droplets, Wind, Thermometer, LogOut, User
 } from 'lucide-react'
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area } from 'recharts'
 
@@ -19,7 +19,7 @@ import KpiCard from './charts/KpiCard'
 import ChartCard from './charts/ChartCard'
 import NotificationSettings from './NotificationSettings'
 import SystemSettings from './SystemSettings'
-import UserManagementModal from './UserManagementModal'
+import UserManagementPage from './UserManagementPage'
 import { authService } from '../services/authService'
 import Panel from './dashboard/Panel'
 import KakaoMap from './dashboard/KakaoMap'
@@ -126,6 +126,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   const [selectedLocation, setSelectedLocation] = useState('center')
   const [locations, setLocations] = useState([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [selectedView, setSelectedView] = useState('dashboard') // 'dashboard' or 'userManagement'
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [isLoading, setIsLoading] = useState(false)
@@ -202,7 +203,6 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
   // 설정 모달 상태
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   const [showSystemSettings, setShowSystemSettings] = useState(false)
-  const [showUserManagement, setShowUserManagement] = useState(false)
 
   // 모바일 사이드바 열림/닫힘에 따른 배경 스크롤 제어
   useEffect(() => {
@@ -525,16 +525,6 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
     onLogout()
   }
 
-  // 회원 추가 처리
-  const handleAddUser = async (userData) => {
-    try {
-      await authService.createUser(userData)
-      alert('회원이 성공적으로 추가되었습니다.')
-    } catch (error) {
-      console.error('회원 추가 실패:', error)
-      throw error
-    }
-  }
 
   // 관리자 권한 확인 (user_level이 0인 경우만 관리자)
   const isAdmin = userInfo && userInfo.user_level === 0
@@ -740,24 +730,39 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
             </div>
           )}
 
-          {/* 알림 설정 */}
+          {/* 설정 메뉴 */}
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">알림 설정</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">설정</h3>
             <div className="space-y-2">
-              <button 
+              <button
                 onClick={() => setShowNotificationSettings(true)}
                 className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg"
               >
                 <Bell className="h-4 w-4" />
                 <span className="text-sm">알림 설정</span>
               </button>
-              <button 
+              <button
                 onClick={() => setShowSystemSettings(true)}
                 className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg"
               >
                 <Settings className="h-4 w-4" />
                 <span className="text-sm">시스템 설정</span>
               </button>
+
+              {/* 관리자 전용 회원 관리 */}
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setSelectedView('userManagement');
+                    setSidebarOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 text-left hover:bg-blue-50 rounded-lg border border-blue-200"
+                >
+                  <User className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm text-blue-600 font-medium">회원 관리</span>
+                  <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">관리자</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -799,17 +804,6 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                 {isLoading ? <LoadingSpinner size="small" /> : <RefreshCw className="h-4 w-4" />}
               </button>
 
-              {/* 관리자 전용 회원 추가 버튼 */}
-              {isAdmin && (
-                <button
-                  onClick={() => setShowUserManagement(true)}
-                  className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
-                  title="사용자 추가"
-                >
-                  <UserPlus className="h-3 w-3" />
-                  <span className="hidden lg:inline">사용자 추가</span>
-                </button>
-              )}
 
               {/* 안전도 표시 - 모바일에서 더 컴팩트하게 */}
               <div className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
@@ -872,8 +866,13 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
           )}
         </header>
 
-        {/* 대시보드 콘텐츠 */}
-        <main className="p-4 space-y-8 flex-1">
+        {/* 콘텐츠 뷰 전환 */}
+        {selectedView === 'userManagement' ? (
+          <UserManagementPage
+            onBack={() => setSelectedView('dashboard')}
+          />
+        ) : (
+          <main className="p-4 space-y-8 flex-1">
           {/* KPI 카드들 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
@@ -987,14 +986,15 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
             flowVelocity={flowVelocity}
             discharge={discharge}
           />
-        </main>
 
-        {/* 푸터 */}
-        <footer className="p-4 border-t bg-white/50">
-          <div className="text-xs text-gray-500 text-center">
-            © 2025 AI CCTV 수위 모니터링 시스템 · 실시간 분석 대시보드
-          </div>
-        </footer>
+            {/* 푸터 */}
+            <footer className="p-4 border-t bg-white/50">
+              <div className="text-xs text-gray-500 text-center">
+                © 2025 AI CCTV 수위 모니터링 시스템 · 실시간 분석 대시보드
+              </div>
+            </footer>
+          </main>
+        )}
       </div>
 
       {/* 세션 타임아웃 모달 */}
@@ -1018,14 +1018,6 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         userInfo={userInfo}
       />
 
-      {/* 회원 관리 모달 (관리자만) */}
-      {isAdmin && (
-        <UserManagementModal
-          isOpen={showUserManagement}
-          onClose={() => setShowUserManagement(false)}
-          onAddUser={handleAddUser}
-        />
-      )}
     </div>
   )
 }

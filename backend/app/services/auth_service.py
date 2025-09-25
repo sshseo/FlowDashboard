@@ -96,7 +96,7 @@ class AuthService:
                     user_data.user_name,
                     user_data.user_level,
                     user_data.user_flow_uid if user_data.user_level != 0 else None,  # 관리자는 NULL
-                    user_data.phone
+                    user_data.phone if user_data.phone else None
                 )
                 
                 return CreateUserResponse(

@@ -13,6 +13,7 @@ export default function LoginForm({ onLogin, serverStatus }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
+  const [showContactInfo, setShowContactInfo] = useState(false)
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -124,12 +125,31 @@ export default function LoginForm({ onLogin, serverStatus }) {
           </label>
           <button
             type="button"
+            onClick={() => setShowContactInfo(!showContactInfo)}
             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             disabled={isLoading}
           >
             비밀번호 찾기
           </button>
         </div>
+
+        {/* 관리자 연락처 정보 */}
+        {showContactInfo && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-sm text-blue-800">
+              <div className="font-medium mb-2">비밀번호 찾기</div>
+              <div className="text-blue-700">
+                아래 관리자 번호로 문의하세요
+              </div>
+              <div className="mt-2 font-mono text-blue-900">
+                📞 010-1234-5678
+              </div>
+              <div className="text-xs text-blue-600 mt-2">
+                평일 09:00 ~ 18:00 (주말 및 공휴일 제외)
+              </div>
+            </div>
+          </div>
+        )}
 
         <button
           type="button"
