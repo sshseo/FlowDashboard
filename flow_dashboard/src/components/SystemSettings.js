@@ -564,10 +564,23 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
     setPointError('');
   };
 
+  // IP 주소 형식 검증 함수
+  const validateIP = (ip) => {
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+    return ipv4Regex.test(ip) || ipv6Regex.test(ip);
+  };
+
   // 카메라 저장 (임시 상태로 추가/수정)
   const saveCamera = () => {
     if (!cameraForm.camera_name || !cameraForm.camera_ip || !cameraForm.flow_uid) {
       setCameraError('카메라명, IP, 모니터링 지점은 필수 입력 항목입니다.');
+      return;
+    }
+
+    // IP 주소 형식 검증
+    if (!validateIP(cameraForm.camera_ip)) {
+      setCameraError('올바른 IP 주소 형식을 입력해주세요. (예: 192.168.1.101)');
       return;
     }
 

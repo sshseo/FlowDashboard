@@ -776,9 +776,11 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                 <Menu className="h-5 w-5" />
               </button>
               <div className="flex items-center gap-2">
-                <Waves className="h-6 w-6 text-blue-600" />
+                <Waves className="hidden sm:block h-6 w-6 text-blue-600" />
                 <div>
-                  <h1 className="text-lg font-semibold sm:text-xl">AI CCTV 수위 모니터링</h1>
+                  <h1 className="text-lg font-bold sm:text-xl lg:text-2xl leading-tight whitespace-nowrap bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent drop-shadow-sm">
+                    수위 대시보드
+                  </h1>
                   <p className="text-xs text-gray-500 hidden sm:block">
                     {flowInfo?.flow_name || '모니터링 지점'} | 실시간 분석 시스템
                   </p>
@@ -786,8 +788,8 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              
+            <div className="flex items-center gap-1 sm:gap-2">
+
               <button
                 onClick={() => window.location.reload()}
                 disabled={isLoading}
@@ -801,20 +803,25 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               {isAdmin && (
                 <button
                   onClick={() => setShowUserManagement(true)}
-                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
                   title="사용자 추가"
                 >
                   <UserPlus className="h-3 w-3" />
-                  <span className="hidden sm:inline">사용자 추가</span>
+                  <span className="hidden lg:inline">사용자 추가</span>
                 </button>
               )}
 
-              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+              {/* 안전도 표시 - 모바일에서 더 컴팩트하게 */}
+              <div className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                 riskLevel.level === 'critical' ? 'text-white bg-red-500' :
                 riskLevel.level === 'warning' ? 'text-white bg-yellow-500' :
                 'text-white bg-green-500'
               }`}>
-                {riskLevel.label}
+                <span className="hidden sm:inline">{riskLevel.label}</span>
+                <span className="sm:hidden">
+                  {riskLevel.level === 'critical' ? '위험' :
+                   riskLevel.level === 'warning' ? '주의' : '안전'}
+                </span>
               </div>
 
               {/* 사용자 정보 드롭다운 */}
@@ -824,9 +831,14 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                   className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg"
                 >
                   <User className="h-4 w-4" />
-                  <span className="text-sm font-medium">
-                    {userInfo?.user_name || '사용자'}
-                  </span>
+                  <div className="text-sm font-medium flex flex-col items-center">
+                    <div>{userInfo?.user_name || '사용자'}</div>
+                    {isAdmin && (
+                      <span className="mt-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded border border-blue-200 whitespace-nowrap">
+                        관리자
+                      </span>
+                    )}
+                  </div>
                 </button>
 
                 {/* 드롭다운 메뉴 */}
