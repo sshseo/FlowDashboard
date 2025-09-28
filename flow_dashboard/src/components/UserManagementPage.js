@@ -10,7 +10,6 @@ export default function UserManagementPage({ onBack }) {
   const [editingUser, setEditingUser] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [monitoringPoints, setMonitoringPoints] = useState([]);
-  const [passwordErrors, setPasswordErrors] = useState([]);
 
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -75,19 +74,13 @@ export default function UserManagementPage({ onBack }) {
       };
 
       // 권한 레벨이 관리자(0)로 변경되면 user_flow_uid 리셋
-      if (field === 'user_level' && value == 0) {
+      if (field === 'user_level' && value === 0) {
         newData.user_flow_uid = '';
       }
 
       return newData;
     });
 
-    // 비밀번호 필드 변경 시 검증
-    if (field === 'password' && value) {
-      setPasswordErrors(validatePassword(value));
-    } else if (field === 'password' && !value) {
-      setPasswordErrors([]);
-    }
   };
 
   // 회원 추가
@@ -243,7 +236,7 @@ export default function UserManagementPage({ onBack }) {
   // 지점 이름 가져오기
   const getPointName = (flowUid) => {
     if (!flowUid) return '-';
-    const point = monitoringPoints.find(p => p.flow_uid == flowUid);
+    const point = monitoringPoints.find(p => p.flow_uid === flowUid);
     return point ? point.label : `지점 ${flowUid}`;
   };
 

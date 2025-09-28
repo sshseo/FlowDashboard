@@ -23,6 +23,13 @@ self.addEventListener('install', function(event) {
 });
 
 self.addEventListener('fetch', function(event) {
+  // 외부 API 요청은 Service Worker에서 처리하지 않음
+  if (event.request.url.includes('apis.data.go.kr') ||
+      event.request.url.includes('api.') ||
+      event.request.url.startsWith('http') && !event.request.url.includes(self.location.origin)) {
+    return; // 외부 API는 브라우저가 직접 처리하도록 함
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(function(response) {
