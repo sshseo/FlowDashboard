@@ -844,47 +844,6 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
                     새 지점 추가
                   </button>
 
-                  {/* 지점 목록 */}
-                  <div className="space-y-2">
-                    {loadingPoints ? (
-                      <div className="text-center py-4 text-sm text-gray-500">
-                        로딩 중...
-                      </div>
-                    ) : monitoringPoints.length === 0 ? (
-                      <div className="text-center py-4 text-sm text-gray-500">
-                        등록된 모니터링 지점이 없습니다.
-                      </div>
-                    ) : (
-                      monitoringPoints.map(point => (
-                        <div key={point.flow_uid} className="flex items-center justify-between p-2 bg-white rounded border">
-                          <div className="text-sm">
-                            <div className="font-medium">{point.flow_name}</div>
-                            <div className="text-gray-500 text-xs">
-                              {point.flow_address || `${point.flow_latitude}, ${point.flow_longitude}`}
-                              {point.flow_region && ` (${point.flow_region})`}
-                            </div>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => startEditPoint(point)}
-                              className="p-1 text-gray-500 hover:text-blue-500"
-                              title="수정"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => deletePoint(point)}
-                              className="p-1 text-gray-500 hover:text-red-500"
-                              title="삭제"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
                   {/* 지점 추가/수정 폼 */}
                   {showPointForm && (
                     <div className="p-3 bg-white rounded border space-y-3">
@@ -964,6 +923,47 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
                       </div>
                     </div>
                   )}
+
+                  {/* 지점 목록 */}
+                  <div className="space-y-2">
+                    {loadingPoints ? (
+                      <div className="text-center py-4 text-sm text-gray-500">
+                        로딩 중...
+                      </div>
+                    ) : monitoringPoints.length === 0 ? (
+                      <div className="text-center py-4 text-sm text-gray-500">
+                        등록된 모니터링 지점이 없습니다.
+                      </div>
+                    ) : (
+                      monitoringPoints.map(point => (
+                        <div key={point.flow_uid} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <div className="text-sm">
+                            <div className="font-medium">{point.flow_name}</div>
+                            <div className="text-gray-500 text-xs">
+                              {point.flow_address || `${point.flow_latitude}, ${point.flow_longitude}`}
+                              {point.flow_region && ` (${point.flow_region})`}
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => startEditPoint(point)}
+                              className="p-1 text-gray-500 hover:text-blue-500"
+                              title="수정"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => deletePoint(point)}
+                              className="p-1 text-gray-500 hover:text-red-500"
+                              title="삭제"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}
