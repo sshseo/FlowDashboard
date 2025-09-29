@@ -873,6 +873,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         {selectedView === 'userManagement' ? (
           <UserManagementPage
             onBack={() => setSelectedView('dashboard')}
+            userInfo={userInfo}
           />
         ) : (
           <main className="p-4 space-y-8 flex-1">

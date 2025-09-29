@@ -155,6 +155,21 @@ async def update_user(
             if user_uid == current_user["user_uid"] and user_data.user_level != current_user["user_level"]:
                 raise HTTPException(status_code=400, detail="자신의 권한 레벨은 변경할 수 없습니다")
 
+            # 기존 사용자 정보 조회 (전화번호와 담당지점 유지를 위해)
+            current_user_info = await conn.fetchrow(
+                "SELECT user_phone, user_flow_uid FROM users WHERE user_uid = $1", user_uid
+            )
+
+            # 전화번호가 제공되지 않았으면 기존 값 유지
+            phone_to_update = user_data.user_phone if user_data.user_phone else current_user_info['user_phone']
+
+            # 담당지점 처리 - 관리자가 아니고 담당지점이 제공되지 않았으면 기존 값 유지
+            if user_data.user_level != 0:
+                flow_uid_to_update = user_data.user_flow_uid if user_data.user_flow_uid is not None else current_user_info['user_flow_uid']
+            else:
+                flow_uid_to_update = None  # 관리자는 담당지점 None
+
+
             # 비밀번호가 제공된 경우 해시 처리
             if user_data.password:
                 hashed_password = auth_service.hash_password(user_data.password)
@@ -162,16 +177,16 @@ async def update_user(
                     UPDATE users
                     SET user_name = $1, user_level = $2, user_phone = $3, user_flow_uid = $4, user_pwd = $5
                     WHERE user_uid = $6
-                """, user_data.user_name, user_data.user_level, user_data.user_phone or None,
-                    user_data.user_flow_uid if user_data.user_level != 0 else None, hashed_password, user_uid)
+                """, user_data.user_name, user_data.user_level, phone_to_update,
+                    flow_uid_to_update, hashed_password, user_uid)
             else:
                 # 비밀번호는 변경하지 않음
                 await conn.execute("""
                     UPDATE users
                     SET user_name = $1, user_level = $2, user_phone = $3, user_flow_uid = $4
                     WHERE user_uid = $5
-                """, user_data.user_name, user_data.user_level, user_data.user_phone or None,
-                    user_data.user_flow_uid if user_data.user_level != 0 else None, user_uid)
+                """, user_data.user_name, user_data.user_level, phone_to_update,
+                    flow_uid_to_update, user_uid)
 
             return {
                 "status": "success",

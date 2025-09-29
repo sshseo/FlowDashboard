@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Edit, Trash2, Plus, ArrowLeft, Search, User, Users } from 'lucide-react';
 import { apiService } from '../services/apiService';
 
-export default function UserManagementPage({ onBack }) {
+export default function UserManagementPage({ onBack, userInfo }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,14 +40,9 @@ export default function UserManagementPage({ onBack }) {
   // 모니터링 지점 로드
   const loadMonitoringPoints = async () => {
     try {
-      console.log('모니터링 지점 로딩 시작...');
       const response = await apiService.getMonitoringPointsForUsers();
-      console.log('모니터링 지점 응답:', response);
       if (response && response.monitoring_points) {
-        console.log('모니터링 지점 설정:', response.monitoring_points);
         setMonitoringPoints(response.monitoring_points);
-      } else {
-        console.warn('모니터링 지점 응답에 monitoring_points가 없음:', response);
       }
     } catch (error) {
       console.error('모니터링 지점 로딩 실패:', error);
@@ -107,13 +102,15 @@ export default function UserManagementPage({ onBack }) {
       alert(`비밀번호는 다음 조건을 만족해야 합니다:\n• ${passwordValidationErrors.join('\n• ')}`);
       return;
     }
-    if (formData.phone && formData.phone.trim()) {
-      // 전화번호 형식 검증 (입력된 경우에만)
-      const phonePattern = /^010-\d{4}-\d{4}$/;
-      if (!phonePattern.test(formData.phone)) {
-        alert('전화번호는 010-1234-5678 형식으로 입력해주세요.');
-        return;
-      }
+    if (!formData.phone || !formData.phone.trim()) {
+      alert('핸드폰 번호를 입력해주세요.');
+      return;
+    }
+    // 전화번호 형식 검증
+    const phonePattern = /^010-\d{4}-\d{4}$/;
+    if (!phonePattern.test(formData.phone)) {
+      alert('전화번호는 010-1234-5678 형식으로 입력해주세요.');
+      return;
     }
     if (formData.user_level !== 0 && !formData.user_flow_uid) {
       alert('일반 사용자는 담당 모니터링 지점을 선택해야 합니다.');
@@ -147,13 +144,15 @@ export default function UserManagementPage({ onBack }) {
       alert('사용자명을 입력해주세요.');
       return;
     }
-    if (formData.phone && formData.phone.trim()) {
-      // 전화번호 형식 검증 (입력된 경우에만)
-      const phonePattern = /^010-\d{4}-\d{4}$/;
-      if (!phonePattern.test(formData.phone)) {
-        alert('전화번호는 010-1234-5678 형식으로 입력해주세요.');
-        return;
-      }
+    if (!formData.phone || !formData.phone.trim()) {
+      alert('핸드폰 번호를 입력해주세요.');
+      return;
+    }
+    // 전화번호 형식 검증
+    const phonePattern = /^010-\d{4}-\d{4}$/;
+    if (!phonePattern.test(formData.phone)) {
+      alert('전화번호는 010-1234-5678 형식으로 입력해주세요.');
+      return;
     }
     if (formData.user_level !== 0 && !formData.user_flow_uid) {
       alert('일반 사용자는 담당 모니터링 지점을 선택해야 합니다.');
@@ -239,6 +238,7 @@ export default function UserManagementPage({ onBack }) {
     const point = monitoringPoints.find(p => p.flow_uid === flowUid);
     return point ? point.label : `지점 ${flowUid}`;
   };
+
 
   // 비밀번호 검증 함수
   const validatePassword = (password) => {
@@ -404,7 +404,7 @@ export default function UserManagementPage({ onBack }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    전화번호 (선택사항)
+                    전화번호 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -412,6 +412,7 @@ export default function UserManagementPage({ onBack }) {
                     onChange={(e) => handleFormChange('phone', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="010-1234-5678"
+                    required
                   />
                 </div>
                 {formData.user_level !== 0 && (
@@ -528,7 +529,7 @@ export default function UserManagementPage({ onBack }) {
                         {user.user_phone || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.user_level === 0 ? '-' : getPointName(user.user_flow_uid)}
+                        {user.user_level === 0 ? '전체지점' : getPointName(user.user_flow_uid)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-'}

@@ -592,6 +592,8 @@ export const apiService = {
         body: JSON.stringify({
           user_name: userData.user_name,
           user_level: userData.user_level,
+          user_phone: userData.phone,
+          user_flow_uid: userData.user_flow_uid,
           password: userData.password || undefined
         })
       })
