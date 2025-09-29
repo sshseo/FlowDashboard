@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Camera, AlertTriangle, Waves, Gauge, Clock,
   RefreshCw, Menu, X, Bell, Settings,
@@ -141,27 +141,27 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
     warningLevel: 10,
     dangerLevel: 15
   })
-  
+
+  // 카메라 목록 로드 함수
+  const loadCameras = useCallback(async () => {
+    try {
+      const response = await apiService.getCameras(flowUid)
+      if (response && response.status === 'success') {
+        setLocations(response.cameras)
+        if (response.cameras.length > 0) {
+          setSelectedLocation(response.cameras[0].id)
+        }
+      }
+    } catch (error) {
+      console.error('카메라 목록 로드 실패:', error)
+    }
+  }, [flowUid])
+
   // 컴포넌트 로드 시 초기화
   useEffect(() => {
     // 브라우저 알림 권한 초기화
     if ('Notification' in window) {
       Notification.requestPermission()
-    }
-
-    // 카메라 목록 로드
-    const loadCameras = async () => {
-      try {
-        const response = await apiService.getCameras(flowUid)
-        if (response && response.status === 'success') {
-          setLocations(response.cameras)
-          if (response.cameras.length > 0) {
-            setSelectedLocation(response.cameras[0].id)
-          }
-        }
-      } catch (error) {
-        console.error('카메라 목록 로드 실패:', error)
-      }
     }
 
     // 알림 설정 로드
@@ -197,7 +197,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
 
     loadCameras()
     loadNotificationSettings()
-  }, [flowUid])
+  }, [flowUid, loadCameras])
 
   // 설정 모달 상태
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
@@ -782,7 +782,11 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               <div className="flex items-center gap-2">
                 <Waves className="hidden sm:block h-6 w-6 text-blue-600" />
                 <div>
-                  <h1 className="text-lg font-bold sm:text-xl lg:text-2xl leading-tight whitespace-nowrap bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent drop-shadow-sm">
+                  <h1
+                    className="text-lg font-bold sm:text-xl lg:text-2xl leading-tight whitespace-nowrap bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent drop-shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setSelectedView('dashboard')}
+                    title="메인 화면으로 돌아가기"
+                  >
                     수위 대시보드
                   </h1>
                   <p className="text-xs text-gray-500 hidden sm:block">
@@ -1015,6 +1019,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
         isOpen={showSystemSettings}
         onClose={() => setShowSystemSettings(false)}
         userInfo={userInfo}
+        onCameraUpdate={loadCameras}
       />
 
     </div>

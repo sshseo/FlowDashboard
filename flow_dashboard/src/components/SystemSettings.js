@@ -4,7 +4,7 @@ import { useSystemSettings } from '../hooks/useSettings';
 import { apiService } from '../services/apiService';
 import LocationPicker from './LocationPicker';
 
-const SystemSettings = ({ isOpen, onClose, userInfo }) => {
+const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
   const { settings: globalSettings, updateSettings: updateGlobalSettings } = useSystemSettings();
   const [settings, setSettings] = useState({
     password: ''
@@ -388,6 +388,16 @@ const SystemSettings = ({ isOpen, onClose, userInfo }) => {
         }
         if (showCameraManagement) {
           await loadCameras();
+        }
+
+        // 카메라 변경사항이 있었다면 대시보드에 알림
+        const hasCameraChanges =
+          pendingChanges.camerasToAdd.length > 0 ||
+          pendingChanges.camerasToUpdate.length > 0 ||
+          pendingChanges.camerasToDelete.length > 0;
+
+        if (hasCameraChanges && onCameraUpdate) {
+          onCameraUpdate();
         }
 
       } catch (error) {
