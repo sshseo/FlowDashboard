@@ -808,8 +808,8 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
               </button>
 
 
-              {/* 안전도 표시 - 모바일에서 더 컴팩트하게 */}
-              <div className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+              {/* 안전도 표시 - 모바일에서만 표시 */}
+              <div className={`xl:hidden px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                 riskLevel.level === 'critical' ? 'text-white bg-red-500' :
                 riskLevel.level === 'warning' ? 'text-white bg-yellow-500' :
                 'text-white bg-green-500'
@@ -927,7 +927,23 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* CCTV 실시간 분석 */}
             <div className="xl:col-span-2">
-              <Panel title="CCTV 실시간 분석" subtitle={`${currentLocation?.name || '중앙'} - ${flowInfo?.flow_region || '모니터링'} 위치`}>
+              <Panel
+                title={
+                  <div className="flex items-center gap-4 w-full">
+                    <div className="flex flex-col">
+                      <span className="text-lg font-semibold">CCTV 실시간 분석</span>
+                      <span className="text-sm text-gray-600 mt-1">{`${currentLocation?.name || '중앙'} - ${flowInfo?.flow_region || '모니터링'} 위치`}</span>
+                    </div>
+                    {/* 데스크톱에서만 보이는 안전도 표시 - 타이틀 옆에 배치 */}
+                    <div className={`hidden xl:flex items-center px-5 py-3 rounded-lg text-lg font-bold whitespace-nowrap shadow-lg ${
+                      riskLevel.level === 'critical' ? 'text-white bg-red-500' :
+                      riskLevel.level === 'warning' ? 'text-white bg-yellow-500' :
+                      'text-white bg-green-500'
+                    }`}>
+                      {riskLevel.label}
+                    </div>
+                  </div>
+                }>
                 <VideoPlayer 
                   videoPath={currentLocation?.videoPath || "/videos/산동지하도.mp4"}
                   waterLevel={kpis.levelCm}

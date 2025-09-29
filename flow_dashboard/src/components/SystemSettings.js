@@ -588,6 +588,12 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
       return;
     }
 
+    // 카메라 이름 길이 검증 (데이터베이스 제한에 맞춰 10자로 제한)
+    if (cameraForm.camera_name.length > 10) {
+      setCameraError('카메라명은 10자 이내로 입력해주세요.');
+      return;
+    }
+
     // IP 주소 형식 검증
     if (!validateIP(cameraForm.camera_ip)) {
       setCameraError('올바른 IP 주소 형식을 입력해주세요. (예: 192.168.1.101)');
