@@ -121,6 +121,17 @@ const ChartsSection = React.memo(({ waterLevel, flowVelocity, discharge }) => (
 ))
 
 export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }) {
+  // 사용자 레벨 텍스트 함수
+  const getUserLevelText = (userInfo) => {
+    if (userInfo?.user_id === 'admin') {
+      return '시스템 관리자';
+    }
+    if (userInfo?.user_level === 0) {
+      return '관리자';
+    }
+    return '일반 사용자';
+  };
+
   // 상태 관리
   const [selectedLocation, setSelectedLocation] = useState('center')
   const [locations, setLocations] = useState([])
@@ -758,7 +769,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                   className="w-full flex items-center gap-3 p-3 text-left hover:bg-blue-50 rounded-lg border border-blue-200"
                 >
                   <User className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm text-blue-600 font-medium">회원 관리</span>
+                  <span className="text-sm text-blue-600 font-medium">사용자 관리</span>
                   <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">관리자</span>
                 </button>
               )}
@@ -830,11 +841,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                   <User className="h-4 w-4" />
                   <div className="text-sm font-medium flex flex-col items-center">
                     <div>{userInfo?.user_name || '사용자'}</div>
-                    {isAdmin && (
-                      <span className="mt-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded border border-blue-200 whitespace-nowrap">
-                        관리자
-                      </span>
-                    )}
+                    <div className="text-xs text-gray-500">{getUserLevelText(userInfo)}</div>
                   </div>
                 </button>
 
@@ -843,7 +850,7 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
                     <div className="p-3 border-b">
                       <div className="text-sm font-medium">{userInfo?.user_name || '사용자'}</div>
-                      <div className="text-xs text-gray-500">{userInfo?.user_id} 로그인 중</div>
+                      <div className="text-xs text-gray-500">{getUserLevelText(userInfo)} ({userInfo?.user_id})</div>
                     </div>
                     <div className="p-1">
                       <button

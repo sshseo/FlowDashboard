@@ -57,14 +57,21 @@ class AuthService:
                 }
             )
 
-    async def create_user(self, user_data: CreateUserRequest, current_user_level: int) -> CreateUserResponse:
+    async def create_user(self, user_data: CreateUserRequest, current_user_level: int, current_user_id: str) -> CreateUserResponse:
         """새 사용자 생성 (관리자만 가능)"""
-        
+
         # 관리자 권한 확인 (user_level 0만 가능)
         if current_user_level != 0:
             raise HTTPException(
                 status_code=403,
-                detail="권한이 없습니다. 관리자만 회원을 추가할 수 있습니다."
+                detail="권한이 없습니다. 관리자만 사용자를 추가할 수 있습니다."
+            )
+
+        # 시스템관리자(admin)가 아닌 일반 관리자는 관리자 레벨 사용자를 생성할 수 없음
+        if current_user_id != "admin" and user_data.user_level == 0:
+            raise HTTPException(
+                status_code=403,
+                detail="일반 관리자는 관리자 레벨 사용자를 생성할 수 없습니다. 시스템관리자(admin)만 가능합니다."
             )
         
         db_pool = get_db_pool()

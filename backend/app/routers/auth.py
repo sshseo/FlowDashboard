@@ -31,7 +31,7 @@ async def verify_token(current_user: dict = Depends(get_current_user)):
 @router.post("/create-user", response_model=CreateUserResponse)
 async def create_user(user_data: CreateUserRequest, current_user: dict = Depends(get_current_user)):
     """새 사용자 생성 (관리자만 가능)"""
-    return await auth_service.create_user(user_data, current_user["user_level"])
+    return await auth_service.create_user(user_data, current_user["user_level"], current_user["user_id"])
 
 
 class ChangePasswordRequest(BaseModel):
@@ -106,6 +106,7 @@ async def get_users(current_user: dict = Depends(get_current_user)):
             users = await conn.fetch("""
                 SELECT user_uid, user_id, user_name, user_level, user_createtime, user_phone, user_flow_uid
                 FROM users
+                WHERE user_id != 'admin'
                 ORDER BY user_createtime DESC
             """)
 
@@ -151,6 +152,10 @@ async def update_user(
             if not existing_user:
                 raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
 
+            # admin 계정 수정 방지 (시스템 관리자 보호)
+            if existing_user["user_id"] == "admin" and current_user["user_uid"] != user_uid:
+                raise HTTPException(status_code=400, detail="시스템 관리자(admin) 계정은 수정할 수 없습니다")
+
             # 자기 자신의 권한 레벨은 변경할 수 없음
             if user_uid == current_user["user_uid"] and user_data.user_level != current_user["user_level"]:
                 raise HTTPException(status_code=400, detail="자신의 권한 레벨은 변경할 수 없습니다")
@@ -172,7 +177,8 @@ async def update_user(
 
             # 비밀번호가 제공된 경우 해시 처리
             if user_data.password:
-                hashed_password = auth_service.hash_password(user_data.password)
+                from app.utils.auth_utils import hash_password as hash_pwd
+                hashed_password = hash_pwd(user_data.password)
                 await conn.execute("""
                     UPDATE users
                     SET user_name = $1, user_level = $2, user_phone = $3, user_flow_uid = $4, user_pwd = $5
@@ -222,6 +228,10 @@ async def delete_user(
             # 자기 자신은 삭제할 수 없음
             if user_uid == current_user["user_uid"]:
                 raise HTTPException(status_code=400, detail="자신의 계정은 삭제할 수 없습니다")
+
+            # admin 계정 삭제 방지 (시스템 관리자 보호)
+            if existing_user["user_id"] == "admin":
+                raise HTTPException(status_code=400, detail="시스템 관리자(admin) 계정은 삭제할 수 없습니다")
 
             # 마지막 관리자 삭제 방지
             if existing_user["user_level"] == 0:

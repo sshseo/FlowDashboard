@@ -68,6 +68,11 @@ export default function UserManagementPage({ onBack, userInfo }) {
         [field]: value
       };
 
+      // 시스템관리자가 아닌 일반 관리자는 관리자 레벨(0)로 설정할 수 없음
+      if (field === 'user_level' && value === 0 && userInfo?.user_id !== 'admin') {
+        return prev; // 변경을 무시하고 이전 상태 유지
+      }
+
       // 권한 레벨이 관리자(0)로 변경되면 user_flow_uid 리셋
       if (field === 'user_level' && value === 0) {
         newData.user_flow_uid = '';
@@ -215,7 +220,10 @@ export default function UserManagementPage({ onBack, userInfo }) {
   };
 
   // 권한 레벨 텍스트
-  const getUserLevelText = (level) => {
+  const getUserLevelText = (level, userId) => {
+    if (userId === 'admin') {
+      return '시스템 관리자';
+    }
     switch (level) {
       case 0: return '관리자';
       case 1: return '일반 사용자';
@@ -279,7 +287,7 @@ export default function UserManagementPage({ onBack, userInfo }) {
           </div>
           <div className="flex items-center gap-2">
             <Users className="h-6 w-6 text-blue-600" />
-            <h1 className="text-xl font-bold text-gray-900">회원 관리</h1>
+            <h1 className="text-xl font-bold text-gray-900">사용자 관리</h1>
           </div>
         </div>
       </div>
@@ -361,10 +369,19 @@ export default function UserManagementPage({ onBack, userInfo }) {
                     value={formData.user_level}
                     onChange={(e) => handleFormChange('user_level', parseInt(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={editingUser && editingUser.user_level === 0 && userInfo?.user_id !== 'admin'}
                   >
                     <option value={1}>일반 사용자</option>
-                    <option value={0}>관리자</option>
+                    {/* 시스템관리자(admin)만 관리자 레벨 사용자를 생성할 수 있음 */}
+                    {(userInfo?.user_id === 'admin' || (editingUser && editingUser.user_level === 0)) && (
+                      <option value={0}>관리자</option>
+                    )}
                   </select>
+                  {editingUser && editingUser.user_level === 0 && userInfo?.user_id !== 'admin' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      관리자 사용자의 권한 레벨은 시스템관리자만 변경할 수 있습니다.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -522,7 +539,7 @@ export default function UserManagementPage({ onBack, userInfo }) {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getUserLevelStyle(user.user_level)}`}>
-                          {getUserLevelText(user.user_level)}
+                          {getUserLevelText(user.user_level, user.user_id)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
