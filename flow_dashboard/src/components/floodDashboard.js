@@ -445,13 +445,13 @@ export default function AICCTVFloodDashboard({ onLogout, userInfo, flowUid = 1 }
     const isRememberMe = localStorage.getItem('isLoggedIn') === 'true'
     const loginTimestamp = localStorage.getItem('loginTimestamp')
 
-    // 로그인 유지가 체크되어 있고, 7일 이내인 경우
+    // 로그인 유지가 체크되어 있고, 30일 이내인 경우
     if (isRememberMe && loginTimestamp) {
       const now = new Date().getTime()
       const loginTime = parseInt(loginTimestamp)
-      const sevenDays = 7 * 24 * 60 * 60 * 1000 // 7일 (밀리초)
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000 // 30일 (밀리초)
 
-      if (now - loginTime < sevenDays) {
+      if (now - loginTime < thirtyDays) {
         console.log('로그인 유지 모드 - 자동 로그아웃 비활성화')
         // 로그인 상태 유지 시에는 세션 타임아웃 없음
         return

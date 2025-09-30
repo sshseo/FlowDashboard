@@ -26,14 +26,14 @@ function App() {
           token = localToken;
           savedUserInfo = localUserInfo;
 
-          // 로그인 유지 기간 체크 (1일)
+          // 로그인 유지 기간 체크 (30일)
           if (loginTimestamp) {
             const now = new Date().getTime();
             const loginTime = parseInt(loginTimestamp);
-            const thirtyDaysInMs = 24 * 60 * 60 * 1000;
+            const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
 
             if (now - loginTime > thirtyDaysInMs) {
-              // 1일 지났으면 자동 로그아웃
+              // 30일 지났으면 자동 로그아웃
               await handleLogout();
               setIsLoading(false);
               return;
