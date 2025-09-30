@@ -41,6 +41,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
   });
   const [loadingCameras, setLoadingCameras] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [cameraIpError, setCameraIpError] = useState('');
 
   // 임시 변경사항 관리 (최종 저장 시 일괄 처리)
   const [pendingChanges, setPendingChanges] = useState({
@@ -358,7 +359,11 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
             await apiService.createCamera(updatedCameraData);
           } catch (error) {
             console.error('카메라 추가 실패:', error);
+            // 사용자에게 구체적인 에러 메시지 표시
+            const errorMessage = error.message || '카메라 추가에 실패했습니다.';
+            setCameraError(`카메라 추가 실패: ${errorMessage}`);
             hasErrors = true;
+            break; // 첫 번째 에러에서 중단하여 사용자가 에러를 확인할 수 있도록 함
           }
         }
 
@@ -368,7 +373,11 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
             await apiService.updateCamera(update.camera_uid, update.data);
           } catch (error) {
             console.error(`카메라 수정 실패 (ID: ${update.camera_uid}):`, error);
+            // 사용자에게 구체적인 에러 메시지 표시
+            const errorMessage = error.message || '카메라 수정에 실패했습니다.';
+            setCameraError(`카메라 수정 실패: ${errorMessage}`);
             hasErrors = true;
+            break; // 첫 번째 에러에서 중단하여 사용자가 에러를 확인할 수 있도록 함
           }
         }
 
@@ -413,7 +422,11 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
 
     // 성공/실패 메시지
     if (hasErrors) {
-      alert('일부 설정 저장에 실패했습니다. 콘솔에서 오류를 확인해주세요.');
+      if (cameraError) {
+        alert(`설정 저장에 실패했습니다.\n${cameraError}`);
+      } else {
+        alert('일부 설정 저장에 실패했습니다. 에러 메시지를 확인해주세요.');
+      }
     } else {
       alert('모든 설정이 성공적으로 저장되었습니다.');
     }
@@ -581,6 +594,32 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
     return ipv4Regex.test(ip) || ipv6Regex.test(ip);
   };
 
+  // 카메라 IP 중복 검증 함수
+  const validateCameraIP = (ip, excludeCameraUid = null) => {
+    if (!ip || !validateIP(ip)) {
+      setCameraIpError('올바른 IP 주소 형식을 입력해주세요. (예: 192.168.1.101)');
+      return false;
+    }
+
+    // 기존 카메라 목록에서 중복 검사
+    const existingCamera = cameras.find(camera =>
+      camera.camera_ip === ip && camera.camera_uid !== excludeCameraUid
+    );
+
+    // 추가 예정인 카메라 목록에서도 중복 검사
+    const pendingCamera = pendingChanges.camerasToAdd.find(camera =>
+      camera.camera_ip === ip
+    );
+
+    if (existingCamera || pendingCamera) {
+      setCameraIpError('이미 등록된 카메라 IP입니다.');
+      return false;
+    }
+
+    setCameraIpError('');
+    return true;
+  };
+
   // 카메라 저장 (임시 상태로 추가/수정)
   const saveCamera = () => {
     if (!cameraForm.camera_name || !cameraForm.camera_ip || !cameraForm.flow_uid) {
@@ -594,9 +633,10 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
       return;
     }
 
-    // IP 주소 형식 검증
-    if (!validateIP(cameraForm.camera_ip)) {
-      setCameraError('올바른 IP 주소 형식을 입력해주세요. (예: 192.168.1.101)');
+    // IP 주소 중복 및 형식 검증
+    const excludeCameraUid = editingCamera ? editingCamera.camera_uid : null;
+    if (!validateCameraIP(cameraForm.camera_ip, excludeCameraUid)) {
+      setCameraError(cameraIpError);
       return;
     }
 
@@ -660,6 +700,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
       flow_uid: camera.flow_uid?.toString() || ''
     });
     setCameraError('');
+    setCameraIpError('');
   };
 
   // 카메라 삭제 (임시 상태로 마킹)
@@ -706,6 +747,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
     setEditingCamera(null);
     setShowCameraForm(false);
     setCameraError('');
+    setCameraIpError('');
   };
 
   // 위치 선택 완료
@@ -1004,6 +1046,7 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
                         flow_uid: ''
                       });
                       setCameraError('');
+                      setCameraIpError('');
                     }}
                     className="flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
                   >
@@ -1026,13 +1069,30 @@ const SystemSettings = ({ isOpen, onClose, userInfo, onCameraUpdate }) => {
                           onChange={(e) => setCameraForm(prev => ({...prev, camera_name: e.target.value}))}
                           className="p-2 border rounded text-sm"
                         />
-                        <input
-                          type="text"
-                          placeholder="카메라 IP (예: 192.168.1.101)"
-                          value={cameraForm.camera_ip}
-                          onChange={(e) => setCameraForm(prev => ({...prev, camera_ip: e.target.value}))}
-                          className="p-2 border rounded text-sm"
-                        />
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="카메라 IP (예: 192.168.1.101)"
+                            value={cameraForm.camera_ip}
+                            onChange={(e) => {
+                              const newIP = e.target.value;
+                              setCameraForm(prev => ({...prev, camera_ip: newIP}));
+                              // 실시간 IP 검증
+                              if (newIP) {
+                                const excludeCameraUid = editingCamera ? editingCamera.camera_uid : null;
+                                validateCameraIP(newIP, excludeCameraUid);
+                              } else {
+                                setCameraIpError('');
+                              }
+                            }}
+                            className={`p-2 border rounded text-sm w-full ${cameraIpError ? 'border-red-300' : 'border-gray-300'}`}
+                          />
+                          {cameraIpError && (
+                            <div className="text-red-500 text-xs mt-1">
+                              {cameraIpError}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <select
