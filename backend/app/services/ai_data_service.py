@@ -232,7 +232,7 @@ class AIDataService:
             # 급변 감지 시 즉시 알림 (쿨다운 무시)
             if rapid_change_detected:
                 should_send_alert = True
-                alert_message = f"🚨 급격한 수위 상승! 1분내 {level_increase:.1f}cm 증가: {water_level_cm:.1f}cm"
+                alert_message = f"급격한 수위 상승! 1분내 {level_increase:.1f}cm 증가: {water_level_cm:.1f}cm"
                 alert_type = "긴급"
                 logger.info(f"급변 감지 알림 발송: {alert_message}")
             """
