@@ -25,7 +25,11 @@ export default function LoginForm({ onLogin, serverStatus }) {
   }
 
   const handleSubmit = async () => {
-    if (!formData.username || !formData.password) {
+    // 공백 제거 후 검증
+    const trimmedUsername = formData.username.trim()
+    const trimmedPassword = formData.password.trim()
+
+    if (!trimmedUsername || !trimmedPassword) {
       setError('사용자명과 비밀번호를 모두 입력해주세요.')
       return
     }
@@ -39,7 +43,7 @@ export default function LoginForm({ onLogin, serverStatus }) {
     setError('')
 
     try {
-      const data = await authService.login(formData.username, formData.password, rememberMe)
+      const data = await authService.login(trimmedUsername, trimmedPassword, rememberMe)
       
       authService.saveToken(data.access_token, data.user_info, rememberMe)
       onLogin(rememberMe, data.user_info)
@@ -154,7 +158,7 @@ export default function LoginForm({ onLogin, serverStatus }) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isLoading || !formData.username || !formData.password || !serverStatus.isOnline}
+          disabled={isLoading || !formData.username.trim() || !formData.password.trim() || !serverStatus.isOnline}
           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
         >
           {isLoading ? (

@@ -421,7 +421,7 @@ export default function UserManagementPage({ onBack, userInfo }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    전화번호 <span className="text-red-500">*</span>
+                    전화번호
                   </label>
                   <input
                     type="text"
